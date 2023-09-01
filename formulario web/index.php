@@ -6,11 +6,11 @@
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
   <title>Landing Page</title>
   <link rel="stylesheet" href="css/style2.css">
-</head>
+</head> 
 <body>
 
   <section class="full">
-    <div class="full-inner">
+    <div class="full-inner"> 
       <div class="content">
         <h1>Edward Cuesta</h1>
         <a href="index2.php">EMPEZAR</a>
