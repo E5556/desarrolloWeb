@@ -10,10 +10,11 @@
 <body>
   <header>
     <section>
-      <h1>Edward Cuesta</h1>
+      <h1>Edward Cuesta</h1>  
       <div class="conte">
         <p>Bienvenido a Mi Pagina</p>
         <a href="index3.php">Crear Cuenta</a>
+        
         <a href="#">Ingresar</a>
       </div>
     </section>
