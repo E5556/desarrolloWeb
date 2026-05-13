@@ -1,0 +1,48 @@
+Options -Indexes
+
+# Página 404 personalizada
+ErrorDocument 404 /proyectowebmaster/404.php
+
+# ── Bloquear acceso a archivos sensibles ─────────────────────────────────────
+<FilesMatch "\.(log|sql|bak|env|ini|sh|py|rb|pl|htpasswd)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# Bloquear acceso directo a includes y config
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^includes/config\.php$ - [F,L]
+    RewriteRule ^includes/security\.php$ - [F,L]
+    RewriteRule ^includes/mailer\.php$ - [F,L]
+    RewriteRule ^includes/points\.php$ - [F,L]
+</IfModule>
+
+# ── Headers de seguridad HTTP ─────────────────────────────────────────────────
+<IfModule mod_headers.c>
+    # Evitar clickjacking
+    Header always set X-Frame-Options "SAMEORIGIN"
+
+    # Evitar MIME sniffing
+    Header always set X-Content-Type-Options "nosniff"
+
+    # XSS básico en navegadores antiguos
+    Header always set X-XSS-Protection "1; mode=block"
+
+    # No enviar referrer a sitios externos
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+    # Forzar HTTPS en producción (descomentar en InfinityFree)
+    # Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
+    # Eliminar header que revela la versión del servidor
+    Header always unset X-Powered-By
+    Header unset X-Powered-By
+</IfModule>
+
+# ── Bloquear user-agents de scanners conocidos ────────────────────────────────
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{HTTP_USER_AGENT} (sqlmap|nikto|nmap|masscan|zgrab|nuclei|dirbuster|burpsuite) [NC]
+    RewriteRule ^ - [F,L]
+</IfModule>

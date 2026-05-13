@@ -1,0 +1,6 @@
+# Bloquear ejecución de PHP dentro de carpeta de imágenes de productos
+<FilesMatch "\.(php|php3|php4|php5|phtml|pl|py|sh|cgi)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+Options -ExecCGI

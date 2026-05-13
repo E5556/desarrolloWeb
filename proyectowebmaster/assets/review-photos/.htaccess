@@ -1,0 +1,6 @@
+# Solo permitir imágenes — bloquear PHP y scripts
+<FilesMatch "\.(php|php3|php4|php5|phtml|pl|py|sh|cgi|rb)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+Options -ExecCGI
