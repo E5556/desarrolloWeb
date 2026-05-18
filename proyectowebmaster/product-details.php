@@ -12,7 +12,7 @@ if (isset($_GET['pid'])) {
     $__pvuid = isset($_SESSION['id']) ? intval($_SESSION['id']) : 'NULL';
     $__pvdate = date('Y-m-d');
     mysqli_query($con, "CREATE TABLE IF NOT EXISTS product_views (id INT AUTO_INCREMENT PRIMARY KEY, product_id INT NOT NULL, user_id INT DEFAULT NULL, view_date DATE NOT NULL, INDEX(product_id), INDEX(view_date))");
-    mysqli_query($con, "INSERT INTO product_views (product_id, user_id, view_date) VALUES ($__pvpid, " . ($__pvuid === 'NULL' ? 'NULL' : $__pvuid) . ", '$__pvdate')");
+    mysqli_query($con, "INSERT INTO product_views (product_id, user_id, session_id) VALUES ($__pvpid, " . ($__pvuid === 'NULL' ? 'NULL' : $__pvuid) . ", '" . session_id() . "')");
 }
 
 if(isset($_GET['action']) && $_GET['action']=="add"){
@@ -66,7 +66,7 @@ if ($pid > 0) {
 // SEO pre-fetch
 $_seo_p = null;
 if ($pid > 0) {
-    $_r = mysqli_query($con, "SELECT productName, productDescription, productCompany, productPrice, productImage FROM products WHERE id=$pid");
+    $_r = mysqli_query($con, "SELECT productName, productDescription, productCompany, productPrice, productImage1 as productImage FROM products WHERE id=$pid");
     $_seo_p = $_r ? mysqli_fetch_assoc($_r) : null;
 }
 
@@ -603,9 +603,9 @@ $num=mysqli_num_rows($rt);
 							<?php
 							// G3: Cargar variantes para este producto
 							$_pvars = [];
-							$_pvq = mysqli_query($con, "CREATE TABLE IF NOT EXISTS product_variants (id INT AUTO_INCREMENT PRIMARY KEY, product_id INT NOT NULL, attr_name VARCHAR(60) NOT NULL, attr_value VARCHAR(60) NOT NULL, stock_qty INT DEFAULT NULL, price_modifier DECIMAL(12,2) DEFAULT 0, INDEX(product_id))");
-							$_pvq = mysqli_query($con, "SELECT * FROM product_variants WHERE product_id={$row['id']} ORDER BY attr_name, id");
-							while ($_pvr = mysqli_fetch_assoc($_pvq)) $_pvars[$_pvr['attr_name']][] = $_pvr;
+							@mysqli_query($con, "CREATE TABLE IF NOT EXISTS product_variants (id INT AUTO_INCREMENT PRIMARY KEY, product_id INT NOT NULL, attr_name VARCHAR(60) NOT NULL, attr_value VARCHAR(60) NOT NULL, stock_qty INT DEFAULT NULL, price_modifier DECIMAL(12,2) DEFAULT 0, INDEX(product_id))");
+							$_pvq = @mysqli_query($con, "SELECT id, product_id, variant_name as attr_name, variant_value as attr_value, stock_qty, price_extra as price_modifier FROM product_variants WHERE product_id={$row['id']} ORDER BY variant_name, id");
+							while ($_pvq && $_pvr = mysqli_fetch_assoc($_pvq)) $_pvars[$_pvr['attr_name']][] = $_pvr;
 							if (!empty($_pvars)):
 							?>
 							<div style="margin-bottom:16px">
@@ -775,7 +775,7 @@ $num=mysqli_num_rows($rt);
 									<div class="product-tab">
 									<?php
 									// Show product variants as specs table
-									$_specs_q = mysqli_query($con, "SELECT attr_name, GROUP_CONCAT(attr_value ORDER BY attr_value SEPARATOR ', ') as values FROM product_variants WHERE product_id=$pid GROUP BY attr_name");
+									$_specs_q = @mysqli_query($con, "SELECT variant_name as attr_name, GROUP_CONCAT(variant_value ORDER BY variant_value SEPARATOR ', ') as `values` FROM product_variants WHERE product_id=$pid GROUP BY variant_name");
 									$_has_specs = $_specs_q && mysqli_num_rows($_specs_q) > 0;
 									// Base specs from product table
 									$_base_specs = [
@@ -1040,7 +1040,7 @@ if ($_buyers_q && mysqli_num_rows($_buyers_q) > 0) {
     $buyer_list = implode(',', $buyer_ids);
     $_tog_q = mysqli_query($con, "SELECT p.id, p.productName, p.productImage1, p.productPrice, p.productAvailability, COUNT(*) as freq
         FROM orders o JOIN products p ON p.id=o.productId
-        WHERE o.userId IN ($buyer_list) AND o.productId != $pid AND p.productStatus='1'
+        WHERE o.userId IN ($buyer_list) AND o.productId != $pid
         GROUP BY p.id ORDER BY freq DESC LIMIT 6");
     while ($_tog_q && $_tr = mysqli_fetch_assoc($_tog_q)) $_together[] = $_tr;
 }

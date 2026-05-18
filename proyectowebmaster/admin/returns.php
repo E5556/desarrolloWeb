@@ -78,9 +78,9 @@ $status_colors = ['pending'=>'warning','approved'=>'success','rejected'=>'danger
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Devoluciones | Admin</title>
-<link href="../assets/css/bootstrap.min.css" rel="stylesheet">
-<link href="../assets/css/font-awesome.min.css" rel="stylesheet">
-<link href="assets/css/admin.css" rel="stylesheet">
+<link href="bootstrap/css/bootstrap.min.css" rel="stylesheet">
+<link href="images/icons/css/font-awesome.css" rel="stylesheet">
+<link href="css/theme.css" rel="stylesheet">
 <style>
 .filter-btns { margin-bottom:16px; }
 .filter-btns a { margin-right:6px; }

@@ -37,9 +37,9 @@ if (isset($_POST['save'])) {
     header('location:discount-rules.php?ok=1'); exit();
 }
 
-$categories = mysqli_query($con, "SELECT id, catName FROM category ORDER BY catName");
+$categories = mysqli_query($con, "SELECT id, categoryName FROM category ORDER BY categoryName");
 $rules = mysqli_query($con,
-    "SELECT dr.*, c.catName FROM category_discounts dr JOIN category c ON dr.cat_id=c.id ORDER BY dr.created_at DESC");
+    "SELECT dr.*, c.categoryName FROM category_discounts dr JOIN category c ON dr.cat_id=c.id ORDER BY dr.created_at DESC");
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -47,9 +47,9 @@ $rules = mysqli_query($con,
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Descuentos por categoría | Admin</title>
-<link href="../assets/css/bootstrap.min.css" rel="stylesheet">
-<link href="../assets/css/font-awesome.min.css" rel="stylesheet">
-<link href="assets/css/admin.css" rel="stylesheet">
+<link href="bootstrap/css/bootstrap.min.css" rel="stylesheet">
+<link href="images/icons/css/font-awesome.css" rel="stylesheet">
+<link href="css/theme.css" rel="stylesheet">
 </head>
 <body>
 <?php include('include/header.php'); ?>
@@ -77,7 +77,7 @@ $rules = mysqli_query($con,
     <select name="cat_id" class="form-control" required>
         <option value="">-- Selecciona --</option>
         <?php while ($c = mysqli_fetch_assoc($categories)): ?>
-        <option value="<?php echo $c['id']; ?>"><?php echo htmlspecialchars($c['catName']); ?></option>
+        <option value="<?php echo $c['id']; ?>"><?php echo htmlspecialchars($c['categoryName']); ?></option>
         <?php endwhile; ?>
     </select>
 </div>
@@ -110,7 +110,7 @@ $rules = mysqli_query($con,
 <tr><td colspan="6" class="text-center text-muted">Sin reglas todavía.</td></tr>
 <?php else: while ($r = mysqli_fetch_assoc($rules)): ?>
 <tr>
-    <td><?php echo htmlspecialchars($r['catName']); ?></td>
+    <td><?php echo htmlspecialchars($r['categoryName']); ?></td>
     <td><?php echo $r['min_qty']; ?>+</td>
     <td><strong style="color:#e8233a"><?php echo $r['discount_pct']; ?>%</strong></td>
     <td><small><?php echo htmlspecialchars($r['label']); ?></small></td>

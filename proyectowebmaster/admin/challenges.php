@@ -81,9 +81,9 @@ $period_labels = ['monthly'=>'Mensual','weekly'=>'Semanal','once'=>'Una vez'];
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Retos y recompensas | Admin</title>
-<link href="../assets/css/bootstrap.min.css" rel="stylesheet">
-<link href="../assets/css/font-awesome.min.css" rel="stylesheet">
-<link href="assets/css/admin.css" rel="stylesheet">
+<link href="bootstrap/css/bootstrap.min.css" rel="stylesheet">
+<link href="images/icons/css/font-awesome.css" rel="stylesheet">
+<link href="css/theme.css" rel="stylesheet">
 </head>
 <body>
 <?php include('include/header.php'); ?>

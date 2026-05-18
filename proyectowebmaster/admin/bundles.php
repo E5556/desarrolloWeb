@@ -95,9 +95,9 @@ $bundles_q = mysqli_query($con, "SELECT b.*, COUNT(bi.id) as item_count FROM bun
 <head>
 <meta charset="utf-8">
 <title>Bundles | Admin</title>
-<link rel="stylesheet" href="../assets/css/bootstrap.min.css">
-<link rel="stylesheet" href="../assets/css/font-awesome.min.css">
-<link rel="stylesheet" href="assets/css/admin.css">
+<link rel="stylesheet" href="bootstrap/css/bootstrap.min.css">
+<link rel="stylesheet" href="images/icons/css/font-awesome.css">
+<link rel="stylesheet" href="css/theme.css">
 <style>body{background:#f4f6f9;font-family:'Segoe UI',Arial,sans-serif}
 .card{background:#fff;border-radius:10px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,.06);margin-bottom:24px}
 .bundle-row{display:flex;align-items:center;gap:12px;padding:12px;border-bottom:1px solid #f0f0f0}

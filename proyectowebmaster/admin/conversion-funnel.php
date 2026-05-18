@@ -56,9 +56,9 @@ $top_dropoff = mysqli_query($con, "SELECT p.productName, COUNT(pv.id) views,
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Funnel de conversion | Admin</title>
-<link href="../assets/css/bootstrap.min.css" rel="stylesheet">
-<link href="../assets/css/font-awesome.min.css" rel="stylesheet">
-<link href="assets/css/admin.css" rel="stylesheet">
+<link href="bootstrap/css/bootstrap.min.css" rel="stylesheet">
+<link href="images/icons/css/font-awesome.css" rel="stylesheet">
+<link href="css/theme.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
 </head>
 <body>

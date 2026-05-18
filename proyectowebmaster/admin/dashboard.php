@@ -5,14 +5,8 @@ if (empty($_SESSION['alogin'])) { header('location:index.php'); exit(); }
 
 date_default_timezone_set('America/Bogota');
 
-// Tabla de vistas de producto (para tasa de conversión)
-mysqli_query($con, "CREATE TABLE IF NOT EXISTS product_views (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    product_id INT NOT NULL,
-    user_id INT DEFAULT NULL,
-    view_date DATE NOT NULL,
-    INDEX(product_id), INDEX(view_date)
-)");
+// Asegurar columna view_date en product_views si falta
+@mysqli_query($con, "ALTER TABLE product_views ADD COLUMN IF NOT EXISTS view_date DATE GENERATED ALWAYS AS (DATE(viewed_at)) VIRTUAL");
 
 // ── KPIs ────────────────────────────────────────────────────────────────────
 $today      = date('Y-m-d');
@@ -103,15 +97,15 @@ $top_products = mysqli_query($con,
 
 // ── VENTAS POR CATEGORÍA (mes) ───────────────────────────────────────────────
 $cat_sales = mysqli_query($con,
-    "SELECT c.catName, COUNT(o.id) orders_n, SUM(o.quantity) units, SUM(o.quantity*p.productPrice) revenue
-     FROM orders o JOIN products p ON o.productId=p.id JOIN categories c ON p.catId=c.id
+    "SELECT c.categoryName as catName, COUNT(o.id) orders_n, SUM(o.quantity) units, SUM(o.quantity*p.productPrice) revenue
+     FROM orders o JOIN products p ON o.productId=p.id JOIN category c ON p.category=c.id
      WHERE o.orderDate>='$month_from'
      GROUP BY c.id ORDER BY revenue DESC LIMIT 10");
 $cat_rows = []; $cat_max = 1;
 while ($cr = mysqli_fetch_assoc($cat_sales)) { $cat_rows[]=$cr; if($cr['revenue']>$cat_max)$cat_max=$cr['revenue']; }
 
 // ── TASA DE CONVERSIÓN ───────────────────────────────────────────────────────
-$_vis_q  = mysqli_query($con, "SELECT COUNT(*) n FROM product_views WHERE view_date>='$month_from'");
+$_vis_q  = mysqli_query($con, "SELECT COUNT(*) n FROM product_views WHERE DATE(viewed_at)>='$month_from'");
 $_vis    = $_vis_q ? intval(mysqli_fetch_assoc($_vis_q)['n']) : 0;
 $_buy_q  = mysqli_query($con, "SELECT COUNT(DISTINCT userId) n FROM orders WHERE orderDate>='$month_from' AND paymentMethod IS NOT NULL");
 $_buyers = $_buy_q ? intval(mysqli_fetch_assoc($_buy_q)['n']) : 0;

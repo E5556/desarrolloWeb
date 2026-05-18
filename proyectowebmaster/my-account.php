@@ -165,7 +165,7 @@ include_once('includes/points.php');
 $_user_points = ps_points_get($con, $_uid_dash);
 $_points_log  = ps_points_log($con, $_uid_dash, 5);
 $_level_info  = ps_level_info($_user_points);
-$_dash_orders = mysqli_query($con,"SELECT o.id, o.productId, p.productName, o.quantity, o.status FROM orders o LEFT JOIN products p ON p.id=o.productId WHERE o.userId=$_uid_dash ORDER BY o.id DESC LIMIT 3");
+$_dash_orders = mysqli_query($con,"SELECT o.id, o.productId, p.productName, o.quantity, o.orderStatus as status FROM orders o LEFT JOIN products p ON p.id=o.productId WHERE o.userId=$_uid_dash ORDER BY o.id DESC LIMIT 3");
 $_dash_wish   = mysqli_query($con,"SELECT COUNT(*) as total FROM wishlist WHERE userId=$_uid_dash");
 $_dash_wish_c = ($_r=mysqli_fetch_assoc($_dash_wish)) ? intval($_r['total']) : 0;
 $_dash_ord_total = mysqli_query($con,"SELECT COUNT(*) as total FROM orders WHERE userId=$_uid_dash");
@@ -415,7 +415,7 @@ while($row=mysqli_fetch_array($query))
 					  	
 					<!-- RETOS Y RECOMPENSAS (N2) -->
 					<?php
-					$_ch_q = @mysqli_query($con, "SELECT c.*, cp.progress, cp.completed FROM challenges c LEFT JOIN challenge_progress cp ON cp.challenge_id=c.id AND cp.user_id=$_uid_dash AND cp.period_key=CASE c.period WHEN 'weekly' THEN DATE_FORMAT(NOW(),'%Y-%u') WHEN 'once' THEN 'once' ELSE DATE_FORMAT(NOW(),'%Y-%m') END WHERE c.active=1 ORDER BY cp.completed ASC, c.id ASC LIMIT 10");
+					$_ch_q = @mysqli_query($con, "SELECT c.*, cp.progress, cp.completed FROM challenges c LEFT JOIN user_challenges cp ON cp.challenge_id=c.id AND cp.user_id=$_uid_dash WHERE c.active=1 ORDER BY cp.completed ASC, c.id ASC LIMIT 10");
 					if ($_ch_q && mysqli_num_rows($_ch_q) > 0):
 					?>
 					<div class="panel panel-default" style="margin-top:16px">

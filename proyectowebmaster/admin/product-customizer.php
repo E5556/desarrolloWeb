@@ -57,7 +57,7 @@ if (isset($_GET['edit'])) {
     if ($edit_row) $product_id = $edit_row['product_id'];
 }
 
-$products_list = mysqli_query($con, "SELECT id, productName FROM products WHERE productStatus='1' ORDER BY productName LIMIT 300");
+$products_list = mysqli_query($con, "SELECT id, productName FROM products ORDER BY productName LIMIT 300");
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -65,9 +65,9 @@ $products_list = mysqli_query($con, "SELECT id, productName FROM products WHERE 
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Configurador de producto | Admin</title>
-<link href="../assets/css/bootstrap.min.css" rel="stylesheet">
-<link href="../assets/css/font-awesome.min.css" rel="stylesheet">
-<link href="assets/css/admin.css" rel="stylesheet">
+<link href="bootstrap/css/bootstrap.min.css" rel="stylesheet">
+<link href="images/icons/css/font-awesome.css" rel="stylesheet">
+<link href="css/theme.css" rel="stylesheet">
 </head>
 <body>
 <?php include('include/header.php'); ?>

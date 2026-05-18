@@ -61,9 +61,9 @@ $zones = mysqli_query($con, "SELECT * FROM shipping_zones ORDER BY active DESC, 
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Zonas de envío | Admin</title>
-<link href="../assets/css/bootstrap.min.css" rel="stylesheet">
-<link href="../assets/css/font-awesome.min.css" rel="stylesheet">
-<link href="assets/css/admin.css" rel="stylesheet">
+<link href="bootstrap/css/bootstrap.min.css" rel="stylesheet">
+<link href="images/icons/css/font-awesome.css" rel="stylesheet">
+<link href="css/theme.css" rel="stylesheet">
 </head>
 <body>
 <?php include('include/header.php'); ?>
@@ -75,8 +75,8 @@ $zones = mysqli_query($con, "SELECT * FROM shipping_zones ORDER BY active DESC, 
 <?php if (isset($_GET['ok'])): ?><div class="alert alert-success">Guardado correctamente.</div><?php endif; ?>
 <?php if (!empty($msg)): ?><div class="alert alert-danger"><?php echo $msg; ?></div><?php endif; ?>
 
-<div class="row">
-<div class="col-md-5">
+<div class="row-fluid">
+<div class="span5">
 <div class="panel panel-default">
 <div class="panel-heading"><strong><?php echo $edit_row ? 'Editar zona' : 'Nueva zona'; ?></strong></div>
 <div class="panel-body">
@@ -91,28 +91,28 @@ $zones = mysqli_query($con, "SELECT * FROM shipping_zones ORDER BY active DESC, 
     <label>Departamentos / ciudades <small class="text-muted">(separados por coma)</small></label>
     <textarea name="departments" class="form-control" rows="3" placeholder="Bogotá, Cundinamarca, Medellín, Antioquia"><?php echo htmlspecialchars($er['departments'] ?? ''); ?></textarea>
 </div>
-<div class="row">
-<div class="col-sm-6">
+<div class="row-fluid">
+<div class="span6">
 <div class="form-group">
     <label>Tarifa base ($)</label>
     <input type="number" name="base_price" class="form-control" min="0" step="100" value="<?php echo $er['base_price'] ?? 0; ?>">
 </div>
 </div>
-<div class="col-sm-6">
+<div class="span6">
 <div class="form-group">
     <label>Precio/kg adicional ($)</label>
     <input type="number" name="price_per_kg" class="form-control" min="0" step="100" value="<?php echo $er['price_per_kg'] ?? 0; ?>">
 </div>
 </div>
 </div>
-<div class="row">
-<div class="col-sm-6">
+<div class="row-fluid">
+<div class="span6">
 <div class="form-group">
     <label>Días entrega mín.</label>
     <input type="number" name="delivery_days_min" class="form-control" min="1" max="30" value="<?php echo $er['delivery_days_min'] ?? 1; ?>">
 </div>
 </div>
-<div class="col-sm-6">
+<div class="span6">
 <div class="form-group">
     <label>Días entrega máx.</label>
     <input type="number" name="delivery_days_max" class="form-control" min="1" max="30" value="<?php echo $er['delivery_days_max'] ?? 3; ?>">
@@ -130,7 +130,7 @@ $zones = mysqli_query($con, "SELECT * FROM shipping_zones ORDER BY active DESC, 
 </div>
 </div>
 
-<div class="col-md-7">
+<div class="span7">
 <table class="table table-bordered table-striped table-hover" style="font-size:12px">
 <thead><tr><th>Zona</th><th>Departamentos</th><th>Tarifa</th><th>Días</th><th>Gratis desde</th><th>Estado</th><th>Acciones</th></tr></thead>
 <tbody>

@@ -79,6 +79,10 @@ function _fs_raw($k,$d=''){ global $_fs; return $_fs[$k] ?? $d; }
                 <div class="media-body"><p><a href="#" id="cookie-reopen-link" style="color:inherit;">Configuración de cookies</a></p></div>
             </li>
             <?php endif; ?>
+            <li class="media">
+                <div class="pull-left"><span class="icon fa-stack fa-lg"><i class="fa fa-circle fa-stack-2x"></i><i class="fa fa-envelope-o fa-stack-1x fa-inverse"></i></span></div>
+                <div class="media-body"><p><a href="contact.php" style="color:inherit;">Contáctanos</a></p></div>
+            </li>
         </ul>
         <div style="margin-top:14px;padding-top:10px;border-top:1px solid rgba(255,255,255,.15);">
             <span style="font-size:11px;color:#aaa;margin-right:6px">Legal:</span>

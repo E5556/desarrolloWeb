@@ -9,9 +9,9 @@ if (empty($_SESSION['alogin'])) { header('location:index.php'); exit(); }
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Chat en vivo | Admin</title>
-<link href="../assets/css/bootstrap.min.css" rel="stylesheet">
-<link href="../assets/css/font-awesome.min.css" rel="stylesheet">
-<link href="assets/css/admin.css" rel="stylesheet">
+<link href="bootstrap/css/bootstrap.min.css" rel="stylesheet">
+<link href="images/icons/css/font-awesome.css" rel="stylesheet">
+<link href="css/theme.css" rel="stylesheet">
 <style>
 .chat-layout { display:flex; gap:0; height: calc(100vh - 140px); min-height:400px; border:1px solid #ddd; border-radius:6px; overflow:hidden; }
 .sessions-panel { width:260px; border-right:1px solid #ddd; background:#f9f9f9; overflow-y:auto; flex-shrink:0; }

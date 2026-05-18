@@ -56,35 +56,41 @@ $faqs_q = mysqli_query($con, "SELECT * FROM faq ORDER BY category, sort_order, i
 <html lang="es">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>FAQ | Admin</title>
-<link rel="stylesheet" href="../assets/css/bootstrap.min.css">
-<link rel="stylesheet" href="../assets/css/font-awesome.min.css">
-<link rel="stylesheet" href="assets/css/admin.css">
-<style>body{background:#f4f6f9;font-family:'Segoe UI',Arial,sans-serif}
-.card{background:#fff;border-radius:10px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,.06);margin-bottom:24px}
-.faq-row{padding:10px 0;border-bottom:1px solid #f0f0f0;display:flex;align-items:flex-start;gap:12px}
-.faq-row .q{font-weight:600;flex:1}
-.cat-badge{background:#3498db;color:#fff;border-radius:10px;padding:2px 8px;font-size:11px}
-</style>
+<link href="bootstrap/css/bootstrap.min.css" rel="stylesheet">
+<link href="images/icons/css/font-awesome.css" rel="stylesheet">
+<link href="css/theme.css" rel="stylesheet">
 </head>
 <body>
-<div class="container" style="padding:30px 0">
-<?php echo $msg; ?>
+<?php include('include/header.php'); ?>
+<div class="container-fluid"><div class="row">
+<?php include('include/sidebar.php'); ?>
+<div class="span9"><div class="content-area">
 
-<div class="card">
-<h3><i class="fa fa-question-circle"></i> <?php echo $edit ? 'Editar FAQ' : 'Nueva pregunta frecuente'; ?></h3>
+<h3><i class="icon-question-sign"></i> FAQ — Preguntas frecuentes</h3>
+<?php if ($msg): ?><?php echo $msg; ?><?php endif; ?>
+
+<div class="row-fluid">
+<div class="span5">
+<div class="panel panel-default">
+<div class="panel-heading"><strong><?php echo $edit ? 'Editar pregunta' : 'Nueva pregunta frecuente'; ?></strong></div>
+<div class="panel-body">
 <form method="post">
 <input type="hidden" name="fid" value="<?php echo $edit ? intval($edit['id']) : 0; ?>">
-<div class="row">
-<div class="col-md-4">
+<div class="form-group">
 <label>Categoría</label>
 <input type="text" name="category" class="form-control" value="<?php echo htmlspecialchars($edit['category'] ?? 'General'); ?>" placeholder="Ej: Envíos, Pagos, Devoluciones">
 </div>
-<div class="col-md-2">
+<div class="row-fluid">
+<div class="span6">
+<div class="form-group">
 <label>Orden</label>
 <input type="number" name="sort_order" class="form-control" value="<?php echo intval($edit['sort_order'] ?? 0); ?>">
 </div>
-<div class="col-md-2">
+</div>
+<div class="span6">
+<div class="form-group">
 <label>Estado</label>
 <select name="is_active" class="form-control">
 <option value="1" <?php echo (!$edit || $edit['is_active']) ? 'selected' : ''; ?>>Activo</option>
@@ -92,50 +98,53 @@ $faqs_q = mysqli_query($con, "SELECT * FROM faq ORDER BY category, sort_order, i
 </select>
 </div>
 </div>
-<div class="row" style="margin-top:10px">
-<div class="col-md-12">
-<label>Pregunta *</label>
+</div>
+<div class="form-group">
+<label>Pregunta <span class="text-danger">*</span></label>
 <input type="text" name="question" class="form-control" required value="<?php echo htmlspecialchars($edit['question'] ?? ''); ?>">
 </div>
+<div class="form-group">
+<label>Respuesta <span class="text-danger">*</span></label>
+<textarea name="answer" class="form-control" rows="4" required><?php echo htmlspecialchars($edit['answer'] ?? ''); ?></textarea>
 </div>
-<div class="row" style="margin-top:10px">
-<div class="col-md-12">
-<label>Respuesta *</label>
-<textarea name="answer" class="form-control" rows="3" required><?php echo htmlspecialchars($edit['answer'] ?? ''); ?></textarea>
-</div>
-</div>
-<div style="margin-top:12px">
-<button type="submit" name="save_faq" class="btn btn-primary"><i class="fa fa-save"></i> Guardar</button>
+<button type="submit" name="save_faq" class="btn btn-primary"><?php echo $edit ? 'Guardar cambios' : 'Agregar'; ?></button>
 <?php if ($edit): ?><a href="faq.php" class="btn btn-default">Cancelar</a><?php endif; ?>
-</div>
 </form>
 </div>
+</div>
+</div>
 
-<div class="card">
-<h4><i class="fa fa-list"></i> Preguntas frecuentes (<a href="../faq.php" target="_blank">Ver página pública</a>)</h4>
-<?php
-$current_cat = null;
-if ($faqs_q) while ($f = mysqli_fetch_assoc($faqs_q)):
-    if ($f['category'] !== $current_cat) {
-        $current_cat = $f['category'];
-        echo '<h5 style="margin:16px 0 6px;color:#3498db"><i class="fa fa-folder-o"></i> '.htmlspecialchars($current_cat).'</h5>';
-    }
-?>
-<div class="faq-row">
-<div class="q">
-<?php if (!$f['is_active']): ?><span style="color:#bbb">[Inactiva] </span><?php endif; ?>
-<?php echo htmlspecialchars($f['question']); ?>
-<div style="font-size:12px;color:#888;font-weight:400;margin-top:2px"><?php echo mb_strimwidth(htmlspecialchars($f['answer']),0,120,'…'); ?></div>
+<div class="span7">
+<table class="table table-bordered table-hover" style="font-size:13px">
+<thead><tr><th>#</th><th>Categoría / Pregunta</th><th>Estado</th><th>Acciones</th></tr></thead>
+<tbody>
+<?php if (!$faqs_q || mysqli_num_rows($faqs_q) === 0): ?>
+<tr><td colspan="4" class="text-center text-muted">Sin preguntas definidas.</td></tr>
+<?php else: while ($f = mysqli_fetch_assoc($faqs_q)): ?>
+<tr>
+    <td><?php echo $f['sort_order']; ?></td>
+    <td>
+        <span class="label label-info"><?php echo htmlspecialchars($f['category']); ?></span><br>
+        <strong><?php echo htmlspecialchars($f['question']); ?></strong>
+        <div style="font-size:11px;color:#888;margin-top:2px"><?php echo mb_strimwidth(htmlspecialchars($f['answer']),0,100,'…'); ?></div>
+    </td>
+    <td><?php echo $f['is_active'] ? '<span class="label label-success">Activo</span>' : '<span class="label label-default">Inactivo</span>'; ?></td>
+    <td style="white-space:nowrap">
+        <a href="faq.php?edit=<?php echo $f['id']; ?>" class="btn btn-xs btn-primary"><i class="icon-edit"></i></a>
+        <a href="faq.php?toggle=<?php echo $f['id']; ?>" class="btn btn-xs btn-warning"><i class="icon-refresh"></i></a>
+        <a href="faq.php?delete=<?php echo $f['id']; ?>" class="btn btn-xs btn-danger" onclick="return confirm('¿Eliminar?')"><i class="icon-trash"></i></a>
+    </td>
+</tr>
+<?php endwhile; endif; ?>
+</tbody>
+</table>
+<p><a href="../faq.php" target="_blank" class="btn btn-default btn-sm"><i class="icon-external-link"></i> Ver página pública</a></p>
 </div>
-<div style="white-space:nowrap">
-<a href="faq.php?edit=<?php echo $f['id']; ?>" class="btn btn-xs btn-default"><i class="fa fa-edit"></i></a>
-<a href="faq.php?toggle=<?php echo $f['id']; ?>" class="btn btn-xs btn-warning"><i class="fa fa-toggle-on"></i></a>
-<a href="faq.php?delete=<?php echo $f['id']; ?>" class="btn btn-xs btn-danger" onclick="return confirm('¿Eliminar?')"><i class="fa fa-trash"></i></a>
 </div>
-</div>
-<?php endwhile; ?>
-</div>
-</div>
+
+</div></div></div></div>
+<?php include('include/footer.php'); ?>
 <script src="../assets/js/jquery-1.11.1.min.js"></script>
+<script src="../assets/js/bootstrap.min.js"></script>
 </body>
 </html>

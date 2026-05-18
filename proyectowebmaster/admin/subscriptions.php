@@ -74,7 +74,7 @@ if (isset($_GET['edit'])) {
 
 $plans = mysqli_query($con, "SELECT sp.*, p.productName, (SELECT COUNT(*) FROM subscriptions s WHERE s.plan_id=sp.id AND s.status='active') as active_count FROM subscription_plans sp LEFT JOIN products p ON p.id=sp.product_id ORDER BY sp.id DESC");
 $subs  = mysqli_query($con, "SELECT s.*, u.name as uname, u.email as uemail, sp.name as plan_name FROM subscriptions s JOIN users u ON u.id=s.user_id JOIN subscription_plans sp ON sp.id=s.plan_id ORDER BY s.id DESC LIMIT 100");
-$products = mysqli_query($con, "SELECT id, productName FROM products WHERE productStatus='1' ORDER BY productName LIMIT 200");
+$products = mysqli_query($con, "SELECT id, productName FROM products ORDER BY productName LIMIT 200");
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -82,9 +82,9 @@ $products = mysqli_query($con, "SELECT id, productName FROM products WHERE produ
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Suscripciones | Admin</title>
-<link href="../assets/css/bootstrap.min.css" rel="stylesheet">
-<link href="../assets/css/font-awesome.min.css" rel="stylesheet">
-<link href="assets/css/admin.css" rel="stylesheet">
+<link href="bootstrap/css/bootstrap.min.css" rel="stylesheet">
+<link href="images/icons/css/font-awesome.css" rel="stylesheet">
+<link href="css/theme.css" rel="stylesheet">
 </head>
 <body>
 <?php include('include/header.php'); ?>

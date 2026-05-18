@@ -633,7 +633,7 @@ foreach ($_hc_chunks as $_hc_pair):
 <script src="assets/js/cookies.js"></script>
 
 <!-- BB4: PWA install prompt -->
-<div id="pwa-install-bar" style="display:none;position:fixed;bottom:0;left:0;right:0;background:#e8233a;color:#fff;padding:12px 20px;z-index:9999;display:flex;align-items:center;justify-content:space-between;box-shadow:0 -2px 12px rgba(0,0,0,.15)">
+<div id="pwa-install-bar" style="display:none;position:fixed;bottom:0;left:0;right:0;background:#e8233a;color:#fff;padding:12px 20px;z-index:9999;align-items:center;justify-content:space-between;box-shadow:0 -2px 12px rgba(0,0,0,.15)">
 <span><i class="fa fa-download"></i> Instala nuestra app para una mejor experiencia</span>
 <div>
 <button id="pwa-install-btn" style="background:#fff;color:#e8233a;border:none;border-radius:6px;padding:7px 18px;font-weight:600;cursor:pointer;margin-right:8px">Instalar</button>

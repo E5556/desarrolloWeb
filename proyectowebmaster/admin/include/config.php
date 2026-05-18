@@ -25,17 +25,22 @@ $_adm_row = $_adm_r ? mysqli_fetch_assoc($_adm_r) : null;
 $_ADMIN_SITE_NAME = htmlspecialchars($_adm_row['setting_value'] ?? 'Mi Tienda', ENT_QUOTES, 'UTF-8');
 unset($_adm_r, $_adm_row);
 
-// AA3: Permission helper — returns current admin's permission row (cached in $_SESSION)
+// AA3: Permission helper — checks if current admin has a specific permission
 function admin_perm(string $key): bool {
     global $con;
-    if (!isset($_SESSION['_admin_perms'])) {
+    if (!isset($_SESSION['_admin_id'])) {
         $u = mysqli_real_escape_string($con, $_SESSION['alogin'] ?? '');
-        $r = mysqli_query($con, "SELECT * FROM admin_role_permissions WHERE username='$u' LIMIT 1");
-        $_SESSION['_admin_perms'] = ($r && $row = mysqli_fetch_assoc($r)) ? $row : [];
+        $r = @mysqli_query($con, "SELECT id FROM admin WHERE username='$u' LIMIT 1");
+        $_SESSION['_admin_id'] = ($r && $row = mysqli_fetch_assoc($r)) ? intval($row['id']) : 0;
     }
-    // Super-admins (no row or role='super') have all permissions
-    if (empty($_SESSION['_admin_perms'])) return true;
-    return !empty($_SESSION['_admin_perms'][$key]);
+    $aid = intval($_SESSION['_admin_id']);
+    if ($aid === 0) return true; // no admin found → super
+    // Check if admin has any permission rows — if none, treat as super-admin
+    $cnt_r = @mysqli_query($con, "SELECT COUNT(*) n FROM admin_role_permissions WHERE admin_id=$aid");
+    if (!$cnt_r || intval(mysqli_fetch_assoc($cnt_r)['n']) === 0) return true;
+    // Check specific permission
+    $pr = @mysqli_query($con, "SELECT id FROM admin_role_permissions WHERE admin_id=$aid AND permission_key='$key' LIMIT 1");
+    return $pr && mysqli_num_rows($pr) > 0;
 }
 
 // Map current page to required permission

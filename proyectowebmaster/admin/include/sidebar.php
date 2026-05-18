@@ -87,7 +87,7 @@ $pend_rv = $_rv_q ? intval(mysqli_fetch_assoc($_rv_q)['n']) : 0;
 						</li>
 						<li><a href="contact-messages.php"><i class="menu-icon icon-envelope"></i>Mensajes de contacto
 							<?php
-							$_cm_q = mysqli_query($con,"SELECT COUNT(*) n FROM contact_messages WHERE is_read=0");
+							$_cm_q = @mysqli_query($con,"SELECT COUNT(*) n FROM contact_messages WHERE is_read=0");
 							$_cm_n = $_cm_q ? intval(mysqli_fetch_assoc($_cm_q)['n']) : 0;
 							if ($_cm_n > 0): ?>
 							<b class="label orange pull-right"><?php echo $_cm_n; ?></b>
@@ -97,7 +97,7 @@ $pend_rv = $_rv_q ? intval(mysqli_fetch_assoc($_rv_q)['n']) : 0;
 						<li><a href="newsletter-send.php"><i class="menu-icon icon-send"></i>Enviar newsletter</a></li>
 						<li><a href="returns.php"><i class="menu-icon icon-undo"></i>Devoluciones
 							<?php
-							$_ret_pend = mysqli_query($con,"SELECT COUNT(*) n FROM returns WHERE status='pending'" );
+							$_ret_pend = @mysqli_query($con,"SELECT COUNT(*) n FROM returns WHERE status='pending'" );
 							$_ret_n = $_ret_pend ? intval(mysqli_fetch_assoc($_ret_pend)['n']) : 0;
 							if ($_ret_n > 0): ?>
 							<b class="label orange pull-right"><?php echo $_ret_n; ?></b>

@@ -47,6 +47,7 @@ if (isset($_POST['send_contact'])) {
     <link rel="stylesheet" href="assets/css/green.css">
     <link rel="stylesheet" href="assets/css/cosmetics.css">
     <link rel="stylesheet" href="assets/css/font-awesome.min.css">
+    <link rel="stylesheet" href="assets/css/cart-drawer.css">
     <link rel="shortcut icon" href="<?php echo $_SITE_FAVICON; ?>">
     <style>
     .contact-card { background:#fff; border:1px solid #eee; border-radius:10px; padding:32px; box-shadow:0 2px 12px rgba(0,0,0,.07); }
