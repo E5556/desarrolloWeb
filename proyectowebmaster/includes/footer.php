@@ -187,7 +187,7 @@ function pwaInstall() {
 (function(){
     var KEY='ps_recently_viewed';
     function rvGet(){ try{ return JSON.parse(localStorage.getItem(KEY)||'[]'); }catch(e){ return []; } }
-    var items=rvGet();
+    var items=rvGet().filter(function(p){ return p && p.id && p.name && p.img && p.img!=='null'; });
     if(items.length===0) return;
     var bar=document.getElementById('rv-bar');
     var cont=document.getElementById('rv-items');

@@ -123,7 +123,7 @@ $products_list = mysqli_query($con, "SELECT id, productName FROM products ORDER 
     <label>Opciones <small class="text-muted">(separadas por |)</small></label>
     <input type="text" name="field_options" class="form-control" value="<?php echo htmlspecialchars($er['field_options'] ?? ''); ?>" placeholder="Rojo | Azul | Verde">
 </div>
-<div class="row">
+<div class="row" style="margin-left:0;margin-right:0;">
 <div class="col-sm-6">
 <div class="form-group">
     <label>Precio extra ($)</label>

@@ -2,6 +2,8 @@
 session_start();
 include('include/config.php');
 if (empty($_SESSION['alogin'])) { header('location:index.php'); exit(); }
+$_admin_sid = session_id();
+$_admin_tok = hash_hmac('sha256', $_admin_sid, 'ps_chat_secret_2024');
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -69,18 +71,20 @@ if (empty($_SESSION['alogin'])) { header('location:index.php'); exit(); }
 </div>
 
 <?php include('include/footer.php'); ?>
-<script src="../assets/js/jquery-1.11.1.min.js"></script>
-<script src="../assets/js/bootstrap.min.js"></script>
+<script src="scripts/jquery-1.9.1.min.js"></script>
+<script src="bootstrap/js/bootstrap.min.js"></script>
 <script>
 var currentSid = null;
 var lastId = 0;
 var pollTimer = null;
+var ADMIN_TOK = '<?php echo $_admin_tok; ?>';
+var ADMIN_SID = '<?php echo $_admin_sid; ?>';
 
 function escHtml(s){ var d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
 function fmtTime(dt){ if(!dt) return ''; var d=new Date(dt.replace(' ','T')); return d.toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'}); }
 
 function loadSessions(){
-    $.post('../ajax-chat.php',{action:'sessions'},function(r){
+    $.post('../ajax-chat.php',{action:'sessions',_tok:ADMIN_TOK,_sid:ADMIN_SID},function(r){
         if(!r.sessions){ return; }
         var list=$('#sessions-list');
         if(r.sessions.length===0){ list.html('<div style="padding:16px;color:#aaa;font-size:12px;text-align:center">Sin chats activos</div>'); return; }
@@ -88,20 +92,25 @@ function loadSessions(){
         r.sessions.forEach(function(s){
             var active = s.session_id===currentSid ? 'active':'';
             var badge = s.unread>0 ? '<span class="unread-badge">'+s.unread+'</span>' : '';
-            h+='<div class="session-item '+active+'" data-sid="'+escHtml(s.session_id)+'">'+badge;
-            h+='<div class="sid">'+s.session_id.substr(0,12)+'…</div>';
+            var label = s.user_name ? escHtml(s.user_name) + (s.user_email ? ' <span style="color:#aaa;font-size:10px">('+escHtml(s.user_email)+')</span>' : '') : '<span style="color:#aaa">Anónimo — '+escHtml(s.session_id.substr(0,10))+'…</span>';
+            h+='<div class="session-item '+active+'" data-sid="'+escHtml(s.session_id)+'" data-uid="'+(s.user_id||0)+'">'+badge;
+            h+='<div style="font-size:12px;font-weight:600">'+label+'</div>';
             h+='<div class="preview">'+(s.preview?escHtml(s.preview.substr(0,60)):'Sin mensajes')+'</div>';
             h+='<div style="font-size:10px;color:#aaa">'+s.last_msg+'</div>';
             h+='</div>';
         });
         list.html(h);
-        list.find('.session-item').on('click',function(){ openSession($(this).data('sid')); });
+        list.find('.session-item').on('click',function(){
+            var $el=$(this);
+            var lbl = $el.find('div:first').text().trim();
+            openSession($el.data('sid'), $el.data('uid'), lbl);
+        });
     },'json');
 }
 
-function openSession(sid){
+function openSession(sid, uid, label){
     currentSid=sid; lastId=0;
-    $('#chat-header').text('Chat con sesión: '+sid.substr(0,20)+'…');
+    $('#chat-header').html('Chat con: <strong>'+(label||sid.substr(0,20)+'…')+'</strong>');
     $('#chat-msgs').html('');
     $('#chat-input-row').show();
     $('#sessions-list .session-item').removeClass('active');
@@ -109,35 +118,42 @@ function openSession(sid){
     pollAdmin();
 }
 
+function addBubble(sender, message, time){
+    var div=$('<div class="msg-bubble '+sender+'">'+escHtml(message)+'<div class="msg-time">'+(time?fmtTime(time):'')+'</div></div>');
+    $('#chat-msgs').append(div);
+    $('#chat-msgs').scrollTop($('#chat-msgs')[0].scrollHeight);
+}
+
 function pollAdmin(){
     if(!currentSid) return;
-    $.post('../ajax-chat.php',{action:'poll',target_sid:currentSid,last_id:lastId},function(r){
-        if(r.msgs && r.msgs.length){
+    $.post('../ajax-chat.php',{action:'poll',target_sid:currentSid,last_id:lastId,_tok:ADMIN_TOK,_sid:ADMIN_SID},function(r){
+        if(r && r.msgs && r.msgs.length){
             r.msgs.forEach(function(m){
-                var div=$('<div class="msg-bubble '+m.sender+'">'+escHtml(m.message)+'<div class="msg-time">'+fmtTime(m.created_at)+'</div></div>');
-                $('#chat-msgs').append(div);
-                lastId=Math.max(lastId,parseInt(m.id));
+                addBubble(m.sender, m.message, m.created_at);
+                lastId = Math.max(lastId, parseInt(m.id));
             });
-            $('#chat-msgs').scrollTop($('#chat-msgs')[0].scrollHeight);
         }
     },'json');
 }
 
 function sendAdmin(){
     var msg=$('#admin-msg-input').val().trim();
-    if(!msg||!currentSid) return;
-    $('#admin-msg-input').val('');
-    $.post('../ajax-chat.php',{action:'send',msg:msg,target_sid:currentSid},function(){
-        pollAdmin();
+    if(!msg || !currentSid) return;
+    $('#admin-msg-input').val('').focus();
+    $.post('../ajax-chat.php',{action:'send',msg:msg,target_sid:currentSid,_tok:ADMIN_TOK,_sid:ADMIN_SID},function(r){
+        if(r && r.ok){ setTimeout(pollAdmin, 200); }
     },'json');
 }
 
 $('#admin-send-btn').on('click',sendAdmin);
 $('#admin-msg-input').on('keypress',function(e){ if(e.key==='Enter') sendAdmin(); });
 
-// Auto-refresh
+// Arranque
 loadSessions();
-setInterval(function(){ loadSessions(); if(currentSid) pollAdmin(); }, 5000);
+setInterval(function(){
+    loadSessions();
+    if(currentSid) pollAdmin();
+}, 3000);
 </script>
 </body>
 </html>

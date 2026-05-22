@@ -27,7 +27,7 @@ if (isset($_POST['send'])) {
         include_once('../includes/mailer.php');
 
         // Leer suscriptores activos
-        $subs = mysqli_query($con, "SELECT email FROM newsletter_subscribers WHERE is_active=1");
+        $subs = mysqli_query($con, "SELECT email FROM newsletter WHERE active=1");
         $sent = 0; $errors = 0;
 
         while ($sub = mysqli_fetch_assoc($subs)) {
@@ -49,10 +49,10 @@ if (isset($_POST['send'])) {
 }
 
 // Historial de campañas
-$campaigns = mysqli_query($con, "SELECT * FROM newsletter_campaigns ORDER BY created_at DESC LIMIT 20");
+$campaigns = mysqli_query($con, "SELECT * FROM newsletter_campaigns ORDER BY id DESC LIMIT 20");
 
 // Conteo de suscriptores activos
-$total_q = mysqli_query($con, "SELECT COUNT(*) n FROM newsletter_subscribers WHERE is_active=1");
+$total_q = mysqli_query($con, "SELECT COUNT(*) n FROM newsletter WHERE active=1");
 $total_subs = $total_q ? intval(mysqli_fetch_assoc($total_q)['n']) : 0;
 ?>
 <!DOCTYPE html>
@@ -107,7 +107,7 @@ $total_subs = $total_q ? intval(mysqli_fetch_assoc($total_q)['n']) : 0;
         <button type="button" class="btn btn-xs btn-default toolbar-btn" onclick="wrapSel('<p>','</p>')">P</button>
         <button type="button" class="btn btn-xs btn-default toolbar-btn" onclick="wrapSel('<a href=\'#\'>','</a>')">Link</button>
         <button type="button" class="btn btn-xs btn-default toolbar-btn" onclick="insertDiv()">Botón CTA</button>
-        <button type="button" class="btn btn-xs btn-info toolbar-btn" onclick="togglePreview()">Vista previa</button>
+        <button type="button" class="btn btn-xs btn-info toolbar-btn" id="btn-preview" onclick="togglePreview()">Vista previa</button>
     </div>
     <textarea name="body" id="body-editor" class="form-control" rows="14" placeholder="Escribe el HTML del correo aquí..."><?php echo htmlspecialchars($_POST['body']??''); ?></textarea>
     <div id="body-preview" style="display:none"></div>
@@ -173,13 +173,20 @@ function togglePreview() {
     previewVisible = !previewVisible;
     var ed = document.getElementById('body-editor');
     var pv = document.getElementById('body-preview');
+    var btn = document.getElementById('btn-preview');
     if (previewVisible) {
         pv.innerHTML = ed.value;
         ed.style.display = 'none';
         pv.style.display = 'block';
+        btn.textContent = 'Ocultar vista previa';
+        btn.classList.remove('btn-info');
+        btn.classList.add('btn-warning');
     } else {
         ed.style.display = 'block';
         pv.style.display = 'none';
+        btn.textContent = 'Vista previa';
+        btn.classList.remove('btn-warning');
+        btn.classList.add('btn-info');
     }
 }
 function wrapSel(before, after) {

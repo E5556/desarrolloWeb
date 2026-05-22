@@ -1232,5 +1232,21 @@ function psRestockSub(pid){
     });
 }
 </script>
+<script>
+$(window).on('load', function(){
+    if($('#owl-single-product').length && !$('#owl-single-product').hasClass('owl-carousel')){
+        $('#owl-single-product').owlCarousel({items:1,itemsTablet:[768,1],itemsMobile:[479,1],itemsDesktop:[1199,1],navigation:true,navigationText:['&#10094;','&#10095;'],rewindNav:true});
+        $('#owl-single-product-thumbnails').owlCarousel({items:4,pagination:false,rewindNav:true,itemsTablet:[768,4],itemsMobile:[479,3],itemsDesktop:[1199,3]});
+        // Sync thumbnails -> main
+        $('#owl-single-product-thumbnails').on('click','.horizontal-thumb',function(e){
+            e.preventDefault();
+            var idx = $(this).closest('.item').index();
+            $('#owl-single-product').data('owlCarousel').goTo(idx);
+            $('#owl-single-product-thumbnails .horizontal-thumb').removeClass('active');
+            $(this).addClass('active');
+        });
+    }
+});
+</script>
 </body>
 </html>

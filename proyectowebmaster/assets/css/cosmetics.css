@@ -568,8 +568,8 @@ img { max-width: 100%; height: auto; }
 /* Toggle button */
 #ps-dark-toggle {
     position: fixed;
-    bottom: 80px;
-    right: 18px;
+    bottom: 24px;
+    right: 72px;
     width: 42px;
     height: 42px;
     border-radius: 50%;

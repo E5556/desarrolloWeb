@@ -114,7 +114,7 @@ $period_labels = ['monthly'=>'Mensual','weekly'=>'Semanal','once'=>'Una vez'];
     <label>Descripción</label>
     <textarea name="description" class="form-control" rows="2"><?php echo htmlspecialchars($er['description'] ?? ''); ?></textarea>
 </div>
-<div class="row">
+<div class="row" style="margin-left:0;margin-right:0;">
 <div class="col-sm-6">
 <div class="form-group">
     <label>Tipo de reto</label>
@@ -136,7 +136,7 @@ $period_labels = ['monthly'=>'Mensual','weekly'=>'Semanal','once'=>'Una vez'];
 </div>
 </div>
 </div>
-<div class="row">
+<div class="row" style="margin-left:0;margin-right:0;">
 <div class="col-sm-6">
 <div class="form-group">
     <label>Meta (valor)</label>

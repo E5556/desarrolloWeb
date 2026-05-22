@@ -150,7 +150,7 @@ function sv($settings, $key, $default='') {
 <?php include('include/header.php'); ?>
 
 <div class="wrapper">
-    <div class="container">
+    <div class="container-fluid">
         <div class="row">
             <?php include('include/sidebar.php'); ?>
             <div class="span9">
@@ -509,7 +509,7 @@ function sv($settings, $key, $default='') {
                                         <label class="control-label">URL Webhook</label>
                                         <div class="controls">
                                             <input type="text" class="span8" readonly
-                                                   value="<?php echo (isset($_SERVER['HTTPS'])?'https':'http').'://'.$_SERVER['HTTP_HOST'].dirname($_SERVER['REQUEST_URI'],'/../').'/mercadopago-webhook.php'; ?>">
+                                                   value="<?php echo (isset($_SERVER['HTTPS'])?'https':'http').'://'.$_SERVER['HTTP_HOST'].rtrim(dirname($_SERVER['REQUEST_URI']),'/').'/mercadopago-webhook.php'; ?>">
                                             <span class="help-block">Copia esta URL y pégala en tu aplicación de MP → Notificaciones IPN/Webhook.</span>
                                         </div>
                                     </div>
@@ -687,14 +687,13 @@ function sv($settings, $key, $default='') {
                                     </div>
                                 </div>
 
-                                <div class="control-group">
+                                <div class="control-group" style="margin-top:20px; padding:15px 0 40px;">
                                     <div class="controls">
                                         <button type="submit" name="submit" class="btn btn-primary btn-large">
                                             <i class="icon-save"></i> Guardar todos los cambios
                                         </button>
                                     </div>
                                 </div>
-
                             </form>
                         </div>
                     </div>

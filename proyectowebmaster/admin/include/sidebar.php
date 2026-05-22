@@ -157,3 +157,35 @@ $pend_rv = $_rv_q ? intval(mysqli_fetch_assoc($_rv_q)['n']) : 0;
 
 					</div><!--/.sidebar-->
 				</div><!--/.span3-->
+<script>
+(function(){
+    document.body.classList.add('admin-has-sidebar');
+    var sidebar = document.querySelector('.span3');
+    var cur = window.location.pathname.split('/').pop().split('?')[0];
+
+    // Marcar ítem activo y hacer scroll hacia él
+    var activeLink = null;
+    var links = document.querySelectorAll('.sidebar .widget-menu li a');
+    links.forEach(function(a){
+        var page = (a.getAttribute('href')||'').split('/').pop().split('?')[0];
+        if(page && page === cur){ a.classList.add('sidebar-active'); activeLink = a; }
+    });
+
+    // Scroll: si hay ítem activo, ir a él; si no, restaurar posición guardada
+    if(activeLink && sidebar){
+        var offset = activeLink.getBoundingClientRect().top - sidebar.getBoundingClientRect().top + sidebar.scrollTop - 80;
+        sidebar.scrollTop = Math.max(0, offset);
+        localStorage.setItem('admin_sidebar_scroll', sidebar.scrollTop);
+    } else {
+        var savedScroll = localStorage.getItem('admin_sidebar_scroll');
+        if(savedScroll && sidebar) sidebar.scrollTop = parseInt(savedScroll);
+    }
+
+    // Guardar posición al hacer clic en cualquier enlace del sidebar
+    if(sidebar){
+        sidebar.addEventListener('scroll', function(){
+            localStorage.setItem('admin_sidebar_scroll', sidebar.scrollTop);
+        });
+    }
+})();
+</script>

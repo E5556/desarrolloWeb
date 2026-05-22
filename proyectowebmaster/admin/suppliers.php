@@ -110,7 +110,7 @@ $products  = mysqli_query($con,"SELECT p.id, p.productName, COALESCE(s.name,'—
     <label>Persona de contacto</label>
     <input type="text" name="contact_name" class="form-control" maxlength="100" value="<?php echo htmlspecialchars($er['contact_name']??''); ?>">
 </div>
-<div class="row">
+<div class="row" style="margin-left:0;margin-right:0;">
 <div class="col-sm-6">
 <div class="form-group">
     <label>Email</label>

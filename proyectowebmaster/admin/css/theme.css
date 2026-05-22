@@ -1694,3 +1694,18 @@ filter:progid:DXImageTransform.Microsoft.gradient(startColorstr='#fff5f5f5', end
 	border-radius: 0 0 3px 0
 }
 @media(max-width:767px){body{padding:0!important}.wrapper{padding:20px 15px}}
+/* ═══ SIDEBAR FIJO + ITEM ACTIVO ═══ */
+div.span3:has(.sidebar) { position: fixed; top: 60px; left: 0; width: 220px; height: calc(100vh - 60px); overflow-y: auto; overflow-x: hidden; z-index: 900; background: #2c2c2c; }
+body.admin-has-sidebar .container-fluid > .row,
+body.admin-has-sidebar .container-fluid > .row-fluid { margin-left: 0 !important; }
+body.admin-has-sidebar .span9 { margin-left: 250px !important; width: calc(100% - 260px) !important; min-height: calc(100vh - 100px); padding: 20px 24px 80px; box-sizing: border-box; overflow: visible; }
+body.admin-has-sidebar .span9 .module { overflow: visible; }
+body.admin-has-sidebar .footer { margin-left: 250px; }
+.sidebar .widget-menu li a { display:flex; align-items:center; justify-content:space-between; overflow:hidden; }
+.sidebar .widget-menu li a .label.pull-right { float:none; margin-left:auto; flex-shrink:0; }
+.container-fluid > .row { display: block; }
+div.span3:has(.sidebar)::-webkit-scrollbar { width: 4px; }
+div.span3:has(.sidebar)::-webkit-scrollbar-track { background: #2c2c2c; }
+div.span3:has(.sidebar)::-webkit-scrollbar-thumb { background: #555; border-radius: 2px; }
+.sidebar .widget-menu li a.sidebar-active { background: #e8233a !important; color: #fff !important; border-left: 3px solid #fff; }
+.sidebar .widget-menu li a.sidebar-active i { color: #fff !important; }
