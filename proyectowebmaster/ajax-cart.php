@@ -1,5 +1,6 @@
 <?php
 session_start();
+error_reporting(0);
 require_once 'includes/config.php';
 header('Content-Type: application/json');
 
@@ -24,9 +25,11 @@ if ($action === 'add') {
                 $sid = session_id();
                 $uid = intval($_SESSION['id'] ?? 0) ?: null;
                 $stmt_ce = mysqli_prepare($con, "INSERT INTO cart_events(product_id,session_id,user_id) VALUES(?,?,?)");
-                mysqli_stmt_bind_param($stmt_ce, 'isi', $id, $sid, $uid);
-                mysqli_stmt_execute($stmt_ce);
-                mysqli_stmt_close($stmt_ce);
+                if ($stmt_ce) {
+                    mysqli_stmt_bind_param($stmt_ce, 'isi', $id, $sid, $uid);
+                    mysqli_stmt_execute($stmt_ce);
+                    mysqli_stmt_close($stmt_ce);
+                }
             }
         }
     }

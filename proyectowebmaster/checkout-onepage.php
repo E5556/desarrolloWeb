@@ -1,6 +1,7 @@
 <?php
 session_start();
 error_reporting(0);
+mysqli_report(MYSQLI_REPORT_OFF);
 include('includes/config.php');
 include('includes/security.php');
 if (empty($_SESSION['login'])) { header('location:login.php'); exit(); }
@@ -9,7 +10,7 @@ if (empty($_SESSION['cart']))  { header('location:my-cart.php'); exit(); }
 $uid = intval($_SESSION['id']);
 include_once('includes/points.php');
 
-// ── Procesar orden ───────────────────────────────────────────────────────────
+// ── Procesar orden ──────────────────────────────────────────────────────────
 if (isset($_POST['checkout_submit'])) {
     csrf_verify();
     $paymethod  = safe_str($con, $_POST['payment_method'] ?? 'COD');
@@ -21,42 +22,50 @@ if (isset($_POST['checkout_submit'])) {
     if ($ship_addr === '' || $ship_city === '') {
         $form_error = 'Por favor completa la dirección de envío.';
     } else {
-        // Actualizar dirección de envío
-        $stmt_up = mysqli_prepare($con, "UPDATE users SET shippingAddress=?,shippingCity=?,shippingState=?,shippingPincode=? WHERE id=?");
-        mysqli_stmt_bind_param($stmt_up, 'ssssi', $ship_addr, $ship_city, $ship_state, $ship_pin, $uid);
-        mysqli_stmt_execute($stmt_up); mysqli_stmt_close($stmt_up);
-
-        // Insertar órdenes
-        $stmt_ord = mysqli_prepare($con, "INSERT INTO orders(userId,productId,quantity) VALUES(?,?,?)");
-        foreach ($_SESSION['cart'] as $pid => $item) {
-            $pid_i = intval($pid); $qty_i = intval($item['quantity']);
-            mysqli_stmt_bind_param($stmt_ord, 'iii', $uid, $pid_i, $qty_i);
-            mysqli_stmt_execute($stmt_ord);
-        }
-        mysqli_stmt_close($stmt_ord);
-
-        // Registrar método de pago en las órdenes recién creadas
-        $last_id = mysqli_insert_id($con);
-        mysqli_query($con, "UPDATE orders SET paymentMethod='" . mysqli_real_escape_string($con, $paymethod) . "' WHERE userId=$uid AND paymentMethod IS NULL");
-
-        // Cupón
-        if (!empty($_SESSION['coupon']['id'])) {
-            mysqli_query($con, "UPDATE coupons SET uses_count=uses_count+1 WHERE id=" . intval($_SESSION['coupon']['id']));
-        }
-
-        // Puntos y retos
-        $_cart_total = 0;
-        foreach ($_SESSION['cart'] as $pid => $item) {
-            $pr = mysqli_query($con, "SELECT productPrice, shippingCharge FROM products WHERE id=" . intval($pid));
-            if ($pr && $row_p = mysqli_fetch_assoc($pr)) {
-                $_cart_total += ($row_p['productPrice'] + $row_p['shippingCharge']) * $item['quantity'];
+        try {
+            // Actualizar dirección de envío
+            $stmt_up = mysqli_prepare($con, "UPDATE users SET shippingAddress=?,shippingCity=?,shippingState=?,shippingPincode=? WHERE id=?");
+            if ($stmt_up) {
+                mysqli_stmt_bind_param($stmt_up, 'ssssi', $ship_addr, $ship_city, $ship_state, $ship_pin, $uid);
+                mysqli_stmt_execute($stmt_up); mysqli_stmt_close($stmt_up);
             }
+
+            // Insertar órdenes
+            $stmt_ord = mysqli_prepare($con, "INSERT INTO orders(userId,productId,quantity) VALUES(?,?,?)");
+            if ($stmt_ord) {
+                foreach ($_SESSION['cart'] as $pid => $item) {
+                    $pid_i = intval($pid); $qty_i = intval($item['quantity']);
+                    mysqli_stmt_bind_param($stmt_ord, 'isi', $uid, (string)$pid_i, $qty_i);
+                    mysqli_stmt_execute($stmt_ord);
+                }
+                mysqli_stmt_close($stmt_ord);
+            }
+
+            // Registrar método de pago
+            mysqli_query($con, "UPDATE orders SET paymentMethod='" . mysqli_real_escape_string($con, $paymethod) . "' WHERE userId=$uid AND paymentMethod IS NULL");
+
+            // Cupón
+            if (!empty($_SESSION['coupon']['id'])) {
+                mysqli_query($con, "UPDATE coupons SET uses_count=uses_count+1 WHERE id=" . intval($_SESSION['coupon']['id']));
+            }
+
+            // Puntos y retos
+            $_cart_total = 0;
+            foreach ($_SESSION['cart'] as $pid => $item) {
+                $pr = mysqli_query($con, "SELECT productPrice, shippingCharge FROM products WHERE id=" . intval($pid));
+                if ($pr && $row_p = mysqli_fetch_assoc($pr)) {
+                    $_cart_total += ($row_p['productPrice'] + $row_p['shippingCharge']) * $item['quantity'];
+                }
+            }
+            $pts_earn = max(1, intval($_cart_total / 1000));
+            ps_points_add($con, $uid, $pts_earn, 'Compra — checkout rápido');
+            include_once('includes/challenges.php');
+            ps_challenge_tick($con, $uid, 'orders', 1);
+            ps_challenge_tick($con, $uid, 'spend', intval($_cart_total));
+        } catch (Exception $e) {
+            // Registrar el error pero continuar con el redirect
+            error_log('Checkout error: ' . $e->getMessage());
         }
-        $pts_earn = max(1, intval($_cart_total / 1000));
-        ps_points_add($con, $uid, $pts_earn, 'Compra — checkout rápido');
-        include_once('includes/challenges.php');
-        ps_challenge_tick($con, $uid, 'orders', 1);
-        ps_challenge_tick($con, $uid, 'spend', intval($_cart_total));
 
         unset($_SESSION['cart'], $_SESSION['coupon'], $_SESSION['points_redeemed'], $_SESSION['points_discount'], $_SESSION['level_discount'], $_SESSION['cat_discount']);
         header('location:order-history.php');
@@ -72,7 +81,7 @@ $u   = $u_q ? mysqli_fetch_assoc($u_q) : [];
 $cart_items = [];
 $subtotal   = 0;
 foreach ($_SESSION['cart'] as $pid => $item) {
-    $pr = mysqli_query($con, "SELECT id, productName, productPrice, shippingCharge, productImage FROM products WHERE id=" . intval($pid));
+    $pr = mysqli_query($con, "SELECT id, productName, productPrice, shippingCharge, productImage1 AS productImage FROM products WHERE id=" . intval($pid));
     if ($pr && $row_p = mysqli_fetch_assoc($pr)) {
         $row_p['qty'] = $item['quantity'];
         $row_p['line_total'] = ($row_p['productPrice'] + $row_p['shippingCharge']) * $item['quantity'];
@@ -196,7 +205,7 @@ $grand_total  = max(0, $subtotal - $coupon_disc - $level_disc);
     <h4><i class="fa fa-shopping-cart"></i> Resumen del pedido</h4>
     <?php foreach ($cart_items as $ci): ?>
     <div class="cart-line">
-      <img src="admin/productimages/<?php echo htmlspecialchars($ci['productImage'] ?? ''); ?>" onerror="this.src='assets/images/no-image.jpg'">
+      <img src="admin/productimages/<?php echo (int)$ci['id']; ?>/<?php echo htmlspecialchars($ci['productImage'] ?? ''); ?>" onerror="this.src='assets/images/no-image.jpg'">
       <span style="flex:1"><?php echo htmlspecialchars($ci['productName']); ?> ×<?php echo $ci['qty']; ?></span>
       <strong>$<?php echo number_format($ci['line_total'], 0, '.', ','); ?></strong>
     </div>

@@ -269,6 +269,7 @@ function pwaInstall() {
 <?php endif; ?>
 
 <!-- ═══════════════════════════════════════════ CART DRAWER ═══════════════════════════════════════════ -->
+<link rel="stylesheet" href="assets/css/cart-drawer.css">
 <div id="cart-overlay"></div>
 <div id="cart-drawer">
   <div class="drawer-header">
