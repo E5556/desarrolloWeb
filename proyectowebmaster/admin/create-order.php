@@ -27,7 +27,7 @@ mysqli_query($con, "CREATE TABLE IF NOT EXISTS order_items (
 if (isset($_GET['ajax']) && $_GET['ajax'] === 'clients') {
     header('Content-Type: application/json');
     $q  = '%' . mysqli_real_escape_string($con, $_GET['q'] ?? '') . '%';
-    $rs = mysqli_query($con, "SELECT id, firstName, lastName, email FROM users WHERE firstName LIKE '$q' OR lastName LIKE '$q' OR email LIKE '$q' ORDER BY firstName LIMIT 20");
+    $rs = mysqli_query($con, "SELECT id, name, email FROM users WHERE name LIKE '$q' OR email LIKE '$q' ORDER BY name LIMIT 20");
     $out = [];
     while ($r = mysqli_fetch_assoc($rs)) $out[] = $r;
     echo json_encode($out); exit();
@@ -222,8 +222,8 @@ $('#client-search').on('input', function() {
             var html = '';
             if (data.length === 0) html = '<div class="client-result" style="color:#aaa">Sin resultados</div>';
             data.forEach(function(c) {
-                html += '<div class="client-result" data-id="'+c.id+'" data-name="'+escHtml(c.firstName+' '+c.lastName)+'" data-email="'+escHtml(c.email)+'">'
-                      + '<strong>'+escHtml(c.firstName+' '+c.lastName)+'</strong> <span style="color:#888">'+escHtml(c.email)+'</span></div>';
+                html += '<div class="client-result" data-id="'+c.id+'" data-name="'+escHtml(c.name)+'" data-email="'+escHtml(c.email)+'">'
+                      + '<strong>'+escHtml(c.name)+'</strong> <span style="color:#888">'+escHtml(c.email)+'</span></div>';
             });
             $('#search-results').html(html).show();
         });
