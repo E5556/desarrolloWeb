@@ -7,7 +7,7 @@ $range = intval($_GET['days'] ?? 30);
 $range = in_array($range, [7,14,30,60,90]) ? $range : 30;
 $from = date('Y-m-d', strtotime("-$range days"));
 
-// 1. Product views
+// 1. Product views 
 $q_views = mysqli_query($con, "SELECT COUNT(*) n FROM product_views WHERE view_date >= '$from'");
 $views = intval(mysqli_fetch_assoc($q_views)['n'] ?? 0);
 
