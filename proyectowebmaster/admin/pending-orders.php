@@ -81,6 +81,8 @@ popUpWin = open(URLStr,'popUpWin', 'toolbar=no,location=no,directories=no,status
 											<th>Qty</th>
 											<th>Total</th>
 											<th>Estado</th>
+											<th>Proveedores</th>
+											<th>Creado por</th>
 											<th>Fecha</th>
 											<th>Acción</th>
 											
@@ -91,7 +93,20 @@ popUpWin = open(URLStr,'popUpWin', 'toolbar=no,location=no,directories=no,status
 <tbody>
 <?php 
 $status='Delivered';
-$query=mysqli_query($con,"select users.name as username,users.email as useremail,users.contactno as usercontact,users.shippingAddress as shippingaddress,users.shippingCity as shippingcity,users.shippingState as shippingstate,users.shippingPincode as shippingpincode,products.productName as productname,products.shippingCharge as shippingcharge,orders.quantity as quantity,orders.orderDate as orderdate,products.productPrice as productprice,orders.id as id,orders.orderStatus as orderstatus  from orders join users on orders.userId=users.id join products on products.id=orders.productId where orders.orderStatus!='$status' or orders.orderStatus is null");
+$query=mysqli_query($con,"SELECT u.name as username, u.email as useremail, u.contactno as usercontact,
+    u.shippingAddress as shippingaddress, u.shippingCity as shippingcity, u.shippingState as shippingstate, u.shippingPincode as shippingpincode,
+    p.productName as productname, p.shippingCharge as shippingcharge, o.quantity as quantity,
+    o.orderDate as orderdate, p.productPrice as productprice, o.id as id, o.orderStatus as orderstatus,
+    a.username as created_by_name,
+    GROUP_CONCAT(DISTINCT s.name ORDER BY s.name SEPARATOR ', ') as suppliers
+    FROM orders o
+    JOIN users u ON o.userId=u.id
+    JOIN products p ON p.id=o.productId
+    LEFT JOIN admin a ON a.id=o.created_by
+    LEFT JOIN order_items oi ON oi.order_id=o.id
+    LEFT JOIN suppliers s ON s.id=oi.supplier_id
+    WHERE o.orderStatus!='$status' OR o.orderStatus IS NULL
+    GROUP BY o.id");
 $cnt=1;
 while($row=mysqli_fetch_array($query))
 {
@@ -105,6 +120,8 @@ while($row=mysqli_fetch_array($query))
 											<td><?php echo htmlentities($row['quantity']);?></td>
 											<td><?php echo htmlentities($row['quantity']*$row['productprice']+$row['shippingcharge']);?></td>
 											<td><?php echo htmlentities($row['orderstatus'] ?: 'Pendiente'); ?></td>
+											<td><?php echo $row['suppliers'] ? '<span style="font-size:.8em;color:#27ae60">'.htmlentities($row['suppliers']).'</span>' : '<span style="color:#bbb;font-size:.8em">—</span>'; ?></td>
+											<td><?php echo $row['created_by_name'] ? '<span style="font-size:.8em;color:#337ab7"><i class="icon-user"></i> '.htmlentities($row['created_by_name']).'</span>' : '<span style="color:#bbb;font-size:.8em">Cliente</span>'; ?></td>
 											<td><?php echo htmlentities($row['orderdate']);?></td>
 											<td><a href="updateorder.php?oid=<?php echo htmlentities($row['id']);?>" title="Actualizar orden" target="_blank"><i class="icon-edit"></i></a></td>
 											</tr>

@@ -13,6 +13,14 @@
 									Gestión de pedidos
 								</a>
 								<ul id="togglePages" class="collapse unstyled">
+									<?php if (in_array($_SESSION['arole']??'super',['super','editor','asesor'])): ?>
+									<li>
+										<a href="create-order.php" style="color:#27ae60;font-weight:600">
+											<i class="icon-plus-sign" style="color:#27ae60"></i>
+											Crear pedido
+										</a>
+									</li>
+									<?php endif; ?>
 									<li>
 										<a href="todays-orders.php">
 											<i class="icon-tasks"></i>

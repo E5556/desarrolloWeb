@@ -65,7 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $hash = password_hash($new_pass, PASSWORD_BCRYPT);
             $eh   = mysqli_real_escape_string($con, $hash);
             $now  = date('d-m-Y h:i:s A');
-            $role = in_array($_POST['role']??'editor',['super','editor','viewer']) ? $_POST['role'] : 'editor';
+            $role = in_array($_POST['role']??'editor',['super','editor','viewer','asesor']) ? $_POST['role'] : 'editor';
             mysqli_query($con, "INSERT INTO admin (username,password,updationDate,role) VALUES ('$eu','$eh','$now','$role')");
             $new_admin_id = mysqli_insert_id($con);
             save_perms($con, $new_admin_id);
@@ -91,7 +91,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $msg = "El nombre de usuario \"$edit_user\" ya está en uso."; $mtyp = 'danger';
         } else {
             $now = mysqli_real_escape_string($con, date('d-m-Y h:i:s A'));
-            $erole = in_array($_POST['role']??'editor',['super','editor','viewer']) ? $_POST['role'] : 'editor';
+            $erole = in_array($_POST['role']??'editor',['super','editor','viewer','asesor']) ? $_POST['role'] : 'editor';
             save_perms($con, $edit_id);
             if ($edit_pass !== '') {
                 if ($edit_pass !== $edit_conf) {
@@ -184,6 +184,7 @@ if (isset($_GET['edit'])) {
         .role-super   { background:#fde8ec; color:#c0392b; border:1px solid #f5b7be; }
         .role-editor  { background:#e8f0fe; color:#1a56db; border:1px solid #bfcffc; }
         .role-viewer  { background:#f0f0f0; color:#555;    border:1px solid #ddd; }
+        .role-asesor  { background:#e8f8f0; color:#27ae60; border:1px solid #a9dfbf; }
 
         /* ── Permisos ── */
         .perm-tag {
@@ -267,10 +268,10 @@ if (isset($_GET['edit'])) {
 <div class="module">
 <?php
 // Colores y etiquetas de rol
-$role_colors = ['super'=>'#c0392b','editor'=>'#1a56db','viewer'=>'#555'];
-$role_cls    = ['super'=>'role-super','editor'=>'role-editor','viewer'=>'role-viewer'];
-$role_labels = ['super'=>'Super Admin','editor'=>'Editor','viewer'=>'Viewer'];
-$role_icons  = ['super'=>'icon-star','editor'=>'icon-edit','viewer'=>'icon-eye-open'];
+$role_colors = ['super'=>'#c0392b','editor'=>'#1a56db','viewer'=>'#555','asesor'=>'#27ae60'];
+$role_cls    = ['super'=>'role-super','editor'=>'role-editor','viewer'=>'role-viewer','asesor'=>'role-asesor'];
+$role_labels = ['super'=>'Super Admin','editor'=>'Editor','viewer'=>'Viewer','asesor'=>'Asesor'];
+$role_icons  = ['super'=>'icon-star','editor'=>'icon-edit','viewer'=>'icon-eye-open','asesor'=>'icon-user'];
 $perm_list   = ['perm_products'=>['📦','Productos'],'perm_orders'=>['🛒','Pedidos'],
                  'perm_stats'=>['📊','Stats'],'perm_users'=>['👥','Clientes'],
                  'perm_settings'=>['⚙️','Config'],'perm_marketing'=>['📣','Marketing']];
@@ -317,6 +318,10 @@ while ($a = mysqli_fetch_assoc($admins)) {
         <div class="asc-num" style="color:#555"><?php echo $viewer_count; ?></div>
         <div class="asc-lbl">👁 Viewers</div>
     </div>
+    <div class="adm-stat-card">
+        <div class="asc-num" style="color:#27ae60"><?php echo array_sum(array_map(fn($a)=>($a['role']??'')==='asesor'?1:0,$admins_arr)); ?></div>
+        <div class="asc-lbl">🤝 Asesores</div>
+    </div>
     <div class="adm-stat-card" style="border-left:3px solid #337ab7">
         <div class="asc-num" style="color:#337ab7"><?php echo $total_admins; ?></div>
         <div class="asc-lbl">Total</div>
@@ -358,6 +363,9 @@ while ($a = mysqli_fetch_assoc($admins)) {
                     <?php foreach ($role_labels as $rv => $rl): ?>
                     <option value="<?php echo $rv; ?>" <?php echo (($edit_row['role']??'super')===$rv?'selected':''); ?>><?php echo $rl; ?></option>
                     <?php endforeach; ?>
+                    <?php if (!isset($role_labels[$edit_row['role']??''])): ?>
+                    <option value="asesor" <?php echo (($edit_row['role']??'')==='asesor'?'selected':''); ?>>Asesor</option>
+                    <?php endif; ?>
                 </select>
             </div>
             <div class="span8">
@@ -410,6 +418,7 @@ while ($a = mysqli_fetch_assoc($admins)) {
                     <option value="super">Super Admin</option>
                     <option value="editor" selected>Editor</option>
                     <option value="viewer">Viewer</option>
+                    <option value="asesor">Asesor</option>
                 </select>
             </div>
             <div class="span8">

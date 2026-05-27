@@ -44,6 +44,8 @@ if(isset($_POST['submit']))
         session_regenerate_id(true);
         $_SESSION['alogin'] = $username;
         $_SESSION['id']     = $num['id'];
+        $_SESSION['aid']    = $num['id'];
+        $_SESSION['arole']  = $num['role'] ?? 'super';
         include_once('../includes/admin-log.php');
         admin_log($con, 'login', 'Sesión iniciada desde ' . ($_SERVER['REMOTE_ADDR'] ?? ''));
         header("location:dashboard.php");
