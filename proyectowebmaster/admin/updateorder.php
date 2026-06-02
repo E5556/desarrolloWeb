@@ -108,9 +108,14 @@ $st='Delivered';
       <td class="fontkink1">Status: </td>
       <td  class="fontkink"><span class="fontkink1" >
         <select name="status" class="fontkink" required="required" >
-          <option value="">Select Status</option>
-                 <option value="in Process">In Process</option>
-                  <option value="Delivered">Delivered</option>
+          <option value="">Seleccionar estado</option>
+          <option value="Borrador">⏳ Borrador</option>
+          <option value="Confirmada">✅ Confirmada</option>
+          <option value="En gestión">🔄 En gestión</option>
+          <option value="Despachada">🚚 Despachada</option>
+          <option value="Entregada">📦 Entregada</option>
+          <option value="in Process">In Process (legado)</option>
+          <option value="Delivered">Delivered (legado)</option>
         </select>
         </span></td>
     </tr>

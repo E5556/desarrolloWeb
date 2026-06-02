@@ -98,7 +98,8 @@ $query=mysqli_query($con,"SELECT u.name as username, u.email as useremail, u.con
     p.productName as productname, p.shippingCharge as shippingcharge, o.quantity as quantity,
     o.orderDate as orderdate, p.productPrice as productprice, o.id as id, o.orderStatus as orderstatus,
     a.username as created_by_name,
-    GROUP_CONCAT(DISTINCT s.name ORDER BY s.name SEPARATOR ', ') as suppliers
+    GROUP_CONCAT(DISTINCT s.name ORDER BY s.name SEPARATOR ', ') as suppliers,
+    o.group_ref
     FROM orders o
     JOIN users u ON o.userId=u.id
     JOIN products p ON p.id=o.productId
@@ -119,11 +120,21 @@ while($row=mysqli_fetch_array($query))
 											<td><?php echo htmlentities($row['productname']);?></td>
 											<td><?php echo htmlentities($row['quantity']);?></td>
 											<td><?php echo htmlentities($row['quantity']*$row['productprice']+$row['shippingcharge']);?></td>
-											<td><?php echo htmlentities($row['orderstatus'] ?: 'Pendiente'); ?></td>
+											<?php
+                                                $st_colors = ['Borrador'=>'#f39c12','Confirmada'=>'#337ab7','En gestión'=>'#8e44ad','Despachada'=>'#27ae60','Entregada'=>'#2c3e50','in Process'=>'#e67e22','Delivered'=>'#27ae60'];
+                                                $st_val = $row['orderstatus'] ?: 'Pendiente';
+                                                $st_color = $st_colors[$st_val] ?? '#aaa';
+                                                ?>
+											<td><span style="background:<?php echo $st_color;?>;color:#fff;padding:2px 8px;border-radius:10px;font-size:.78em;font-weight:700"><?php echo htmlentities($st_val); ?></span></td>
 											<td><?php echo $row['suppliers'] ? '<span style="font-size:.8em;color:#27ae60">'.htmlentities($row['suppliers']).'</span>' : '<span style="color:#bbb;font-size:.8em">—</span>'; ?></td>
 											<td><?php echo $row['created_by_name'] ? '<span style="font-size:.8em;color:#337ab7"><i class="icon-user"></i> '.htmlentities($row['created_by_name']).'</span>' : '<span style="color:#bbb;font-size:.8em">Cliente</span>'; ?></td>
 											<td><?php echo htmlentities($row['orderdate']);?></td>
-											<td><a href="updateorder.php?oid=<?php echo htmlentities($row['id']);?>" title="Actualizar orden" target="_blank"><i class="icon-edit"></i></a></td>
+											<td>
+                                                <?php if ($row['orderstatus']==='Borrador' && !empty($row['group_ref'])): ?>
+                                                <a href="edit-order.php?ref=<?php echo urlencode($row['group_ref']); ?>" title="Editar borrador" style="color:#f39c12"><i class="icon-pencil"></i> Editar</a><br>
+                                                <?php endif; ?>
+                                                <a href="updateorder.php?oid=<?php echo htmlentities($row['id']);?>" title="Cambiar estado" target="_blank"><i class="icon-edit"></i></a>
+                                                </td>
 											</tr>
 
 										<?php $cnt=$cnt+1; } ?>

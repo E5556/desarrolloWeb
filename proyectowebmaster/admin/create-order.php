@@ -63,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_order'])) {
         $msg = 'Selecciona un cliente y al menos un producto.'; $mtyp = 'danger';
     } else {
         $first_order_id = null;
-        $stmt = mysqli_prepare($con, "INSERT INTO orders(userId,productId,quantity,paymentMethod,orderStatus,created_by,group_ref) VALUES(?,?,?,'$paymethod','Pending',?,?)");
+        $stmt = mysqli_prepare($con, "INSERT INTO orders(userId,productId,quantity,paymentMethod,orderStatus,created_by,group_ref) VALUES(?,?,?,'$paymethod','Borrador',?,?)");
         foreach ($pids as $i => $pid) {
             $pid_i = intval($pid);
             $qty_i = max(1, intval($qtys[$i] ?? 1));
@@ -82,7 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_order'])) {
             mysqli_stmt_close($stmt2);
         }
         mysqli_stmt_close($stmt);
-        $msg  = '✅ Pedido creado correctamente. <a href="orders.php" style="color:#155724">Ver pedidos</a>';
+        $msg  = '✅ Pedido creado en estado <strong>Borrador</strong>. <a href="edit-order.php?ref='.htmlspecialchars($group_ref).'" style="color:#155724">Revisar y confirmar pedido →</a>';
         $mtyp = 'success';
     }
 }

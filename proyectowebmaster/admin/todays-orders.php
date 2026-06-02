@@ -92,7 +92,8 @@ $query=mysqli_query($con,"SELECT u.name as username, u.email as useremail, u.con
     p.productName as productname, p.shippingCharge as shippingcharge, o.quantity as quantity,
     o.orderDate as orderdate, p.productPrice as productprice, o.id as id,
     a.username as created_by_name,
-    GROUP_CONCAT(DISTINCT s.name ORDER BY s.name SEPARATOR ', ') as suppliers
+    GROUP_CONCAT(DISTINCT s.name ORDER BY s.name SEPARATOR ', ') as suppliers,
+    o.group_ref
     FROM orders o
     JOIN users u ON o.userId=u.id
     JOIN products p ON p.id=o.productId
@@ -117,7 +118,12 @@ while($row=mysqli_fetch_array($query))
 											<td><?php echo $row['suppliers'] ? '<span style="font-size:.8em;color:#27ae60">'.htmlentities($row['suppliers']).'</span>' : '<span style="color:#bbb;font-size:.8em">—</span>'; ?></td>
 											<td><?php echo $row['created_by_name'] ? '<span style="font-size:.8em;color:#337ab7"><i class="icon-user"></i> '.htmlentities($row['created_by_name']).'</span>' : '<span style="color:#bbb;font-size:.8em">Cliente</span>'; ?></td>
 											<td><?php echo htmlentities($row['orderdate']);?></td>
-											<td><a href="updateorder.php?oid=<?php echo htmlentities($row['id']);?>" title="Actualizar" target="_blank"><i class="icon-edit"></i></a></td>
+											<td>
+                                                <?php if ($row['orderstatus']==='Borrador' && !empty($row['group_ref'])): ?>
+                                                <a href="edit-order.php?ref=<?php echo urlencode($row['group_ref']); ?>" title="Editar borrador" style="color:#f39c12"><i class="icon-pencil"></i> Editar</a><br>
+                                                <?php endif; ?>
+                                                <a href="updateorder.php?oid=<?php echo htmlentities($row['id']);?>" title="Cambiar estado" target="_blank"><i class="icon-edit"></i></a>
+                                                </td>
 											</tr>
 
 										<?php $cnt=$cnt+1; } ?>
