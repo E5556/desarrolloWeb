@@ -78,8 +78,10 @@ $num1 = mysqli_num_rows($rt);
 						<ul class="widget widget-menu unstyled">
                                 <li><a href="category.php"><i class="menu-icon icon-tasks"></i> Crear Categoría </a></li>
                                 <li><a href="subcategory.php"><i class="menu-icon icon-tasks"></i>SubCategoria </a></li>
-                                <li><a href="insert-product.php"><i class="menu-icon icon-paste"></i>Insertar Producto </a></li>
-                                <li><a href="manage-products.php"><i class="menu-icon icon-table"></i>Administrar Productos </a></li>
+                                <li><a href="insert-product.php"><i class="menu-icon icon-paste"></i>Insertar Producto</a></li>
+                                <li><a href="manage-products.php"><i class="menu-icon icon-table"></i>Administrar Productos</a></li>
+                                <li><a href="inventory-adjust.php"><i class="menu-icon icon-inbox"></i>Ajustar Inventario</a></li>
+                                <li><a href="product-sales.php"><i class="menu-icon icon-bar-chart"></i>Ventas por Referencia</a></li>
                                 <li><a href="product-customizer.php"><i class="menu-icon icon-magic"></i>Configurador de producto</a></li>
                         
                             </ul><!--/.widget-nav-->

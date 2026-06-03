@@ -132,6 +132,20 @@ if ($is_editable && $_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['add_ite
 // ── Confirmar pedido ─────────────────────────────────────────────────────────
 if ($is_editable && $_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['confirm_order'])) {
     mysqli_query($con, "UPDATE orders SET orderStatus='Confirmada' WHERE group_ref='$ref_e'");
+
+    // Descontar stock por cada línea del pedido
+    $lines_stock = mysqli_query($con, "SELECT o.productId, o.quantity FROM orders o WHERE o.group_ref='$ref_e'");
+    $admin_user  = mysqli_real_escape_string($con, $_SESSION['alogin'] ?? 'asesor');
+    while ($ls = mysqli_fetch_assoc($lines_stock)) {
+        $spid = intval($ls['productId']);
+        $sqty = intval($ls['quantity']);
+        mysqli_query($con, "UPDATE products SET stock_qty = GREATEST(0, COALESCE(stock_qty,0) - $sqty) WHERE id=$spid AND stock_qty IS NOT NULL");
+        mysqli_query($con, "UPDATE products SET productAvailability='Out of Stock' WHERE id=$spid AND stock_qty IS NOT NULL AND stock_qty=0");
+        $qa = mysqli_fetch_assoc(mysqli_query($con, "SELECT stock_qty FROM products WHERE id=$spid LIMIT 1"));
+        $qty_after = intval($qa['stock_qty'] ?? 0);
+        mysqli_query($con, "INSERT INTO stock_movements(product_id,type,qty_change,qty_after,reason,admin_user)
+            VALUES($spid,'out',-$sqty,$qty_after,'Venta confirmada por asesor — grupo $ref_e','$admin_user')");
+    }
     header("location:edit-order.php?ref=$group_ref"); exit();
 }
 

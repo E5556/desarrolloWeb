@@ -2,6 +2,7 @@
 session_start();
 include('include/config.php');
 if (empty($_SESSION['alogin'])) { header('location:index.php'); exit(); }
+admin_require_perm('perm_products');
 
 // Auto-create table
 mysqli_query($con, "CREATE TABLE IF NOT EXISTS stock_movements (
@@ -72,7 +73,13 @@ $products = mysqli_query($con,"SELECT id,productName,stock_qty FROM products ORD
 <div class="span9">
 <div class="content-area">
 
-<h3><i class="icon-list-alt"></i> Historial de movimientos de stock</h3>
+<h3><i class="icon-list-alt"></i> Historial de movimientos de stock
+    <span style="float:right;display:flex;gap:6px">
+        <a href="../admin/export.php?type=stock_movements" class="btn btn-xs btn-success"><i class="icon-download"></i> Exportar movimientos CSV</a>
+        <a href="../admin/export.php?type=inventory" class="btn btn-xs btn-info"><i class="icon-download"></i> Inventario valorizado CSV</a>
+        <a href="inventory-adjust.php" class="btn btn-xs btn-default"><i class="icon-inbox"></i> Ajustar inventario</a>
+    </span>
+</h3>
 
 <?php if (isset($_GET['ok'])): ?>
 <div class="alert alert-success">Ajuste aplicado correctamente.</div>

@@ -71,6 +71,37 @@ switch ($type) {
             ['ID','Email','Activo','Fecha suscripción'], $r);
         break;
 
+    case 'inventory':
+        admin_require_perm('perm_products');
+        $r = mysqli_query($con,
+            "SELECT p.id, p.productName, p.productCompany,
+                    c.categoryName, p.productAvailability,
+                    COALESCE(p.stock_qty,0) as stock_qty,
+                    p.productPrice,
+                    COALESCE(p.stock_qty,0) * p.productPrice as valor_inventario,
+                    COALESCE(s.name,'—') as proveedor,
+                    p.shippingCharge
+             FROM products p
+             LEFT JOIN category c ON c.id=p.category
+             LEFT JOIN suppliers s ON s.id=p.supplier_id
+             ORDER BY valor_inventario DESC");
+        csv_output('inventario_valorizado_' . date('Ymd') . '.csv',
+            ['ID','Nombre','Marca','Categoría','Disponibilidad','Stock','Precio','Valor en inventario','Proveedor','Envío'], $r);
+        break;
+
+    case 'stock_movements':
+        admin_require_perm('perm_products');
+        $r = mysqli_query($con,
+            "SELECT sm.id, p.productName, sm.type as tipo, sm.qty_change as cambio,
+                    sm.qty_after as stock_resultante, sm.reason as razon,
+                    sm.admin_user as usuario, sm.created_at as fecha
+             FROM stock_movements sm
+             JOIN products p ON p.id=sm.product_id
+             ORDER BY sm.created_at DESC");
+        csv_output('movimientos_stock_' . date('Ymd') . '.csv',
+            ['ID','Producto','Tipo','Cambio','Stock resultante','Razón','Usuario','Fecha'], $r);
+        break;
+
     default:
         http_response_code(400);
         echo 'Tipo de exportación inválido.';
