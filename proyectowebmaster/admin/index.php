@@ -40,7 +40,25 @@ if(isset($_POST['submit']))
 
     if($pw_valid)
     {
-        unset($_SESSION[$rl_key]); // reset counter on success
+        unset($_SESSION[$rl_key]);
+        // FF1 — 2FA: si está habilitado, enviar OTP y redirigir a verificación
+        $tfa_q = mysqli_query($con,"SELECT setting_value FROM settings WHERE setting_key='two_factor_enabled' LIMIT 1");
+        $tfa_on = $tfa_q && (mysqli_fetch_assoc($tfa_q)['setting_value'] ?? '0') === '1';
+        // Obtener email del admin
+        $adm_email_q = mysqli_query($con,"SELECT setting_value FROM settings WHERE setting_key='admin_email' LIMIT 1");
+        $adm_email = trim(mysqli_fetch_assoc($adm_email_q)['setting_value'] ?? '');
+        if ($tfa_on && $adm_email !== '') {
+            $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+            $_SESSION['2fa_pending']  = true;
+            $_SESSION['2fa_otp']      = password_hash($otp, PASSWORD_BCRYPT);
+            $_SESSION['2fa_expires']  = time() + 600;
+            $_SESSION['2fa_uid']      = $num['id'];
+            $_SESSION['2fa_username'] = $username;
+            $_SESSION['2fa_role']     = $num['role'] ?? 'super';
+            include_once('../includes/mailer.php');
+            send_email_otp($con, $adm_email, $otp);
+            header("location:admin-verify-2fa.php"); exit();
+        }
         session_regenerate_id(true);
         $_SESSION['alogin'] = $username;
         $_SESSION['id']     = $num['id'];

@@ -27,6 +27,34 @@ if ($tracking_url !== '') {
 }
 include_once('../includes/admin-log.php');
 admin_log($con, 'update_order', "Orden #$oid → $status");
+
+// EE2 — Notificar al cliente por email al cambiar estado
+include_once('../includes/mailer.php');
+$ord_info = mysqli_fetch_assoc(mysqli_query($con,"SELECT o.*,u.name,u.email FROM orders o JOIN users u ON u.id=o.userId WHERE o.id=$oid LIMIT 1"));
+if($ord_info && !empty($ord_info['email'])){
+    $st_msgs=['Confirmada'=>'Tu pedido ha sido confirmado y está siendo procesado.','En gestión'=>'Tu pedido está siendo gestionado. Estamos preparando tus artículos.','Despachada'=>'¡Tu pedido está en camino! '.($tracking_url?'Sigue tu envío: '.$tracking_url:''),'Entregada'=>'Tu pedido ha sido entregado. ¡Gracias por tu compra!'];
+    if(isset($st_msgs[$status])){
+        $cfg_q=mysqli_query($con,"SELECT setting_value FROM settings WHERE setting_key='site_name' LIMIT 1");
+        $site=mysqli_fetch_assoc($cfg_q)['setting_value']??'Tienda';
+        $html='<html><body style="font-family:Arial,sans-serif;max-width:560px;margin:auto;padding:20px">
+        <div style="background:#e8233a;padding:16px;border-radius:6px 6px 0 0;text-align:center"><h2 style="color:#fff;margin:0">'.htmlspecialchars($site).'</h2></div>
+        <div style="border:1px solid #eee;border-top:none;padding:24px;border-radius:0 0 6px 6px">
+        <p>Hola <strong>'.htmlspecialchars($ord_info['name']).'</strong>,</p>
+        <p style="color:#555">'.htmlspecialchars($st_msgs[$status]).'</p>
+        <p style="margin-top:14px"><strong>Orden #:</strong> '.$oid.'<br><strong>Estado:</strong> <span style="color:#e8233a;font-weight:700">'.$status.'</span></p>
+        '.($remark?'<p style="background:#f9f9f9;padding:10px;border-radius:4px;font-size:13px;color:#555">'.nl2br(htmlspecialchars($remark)).'</p>':'').'
+        </div></body></html>';
+        send_email_raw($ord_info['email'],$ord_info['name'],"[$site] Estado de tu pedido #$oid — $status",$html);
+    }
+}
+
+// DD3 — Alertas de reabastecimiento: revisar stock bajo tras cada actualización
+$low_thr_q = mysqli_query($con,"SELECT setting_value FROM settings WHERE setting_key='low_stock_threshold' LIMIT 1");
+$low_thr   = intval(mysqli_fetch_assoc($low_thr_q)['setting_value'] ?? 5);
+$low_q     = mysqli_query($con,"SELECT id,productName,stock_qty FROM products WHERE stock_qty IS NOT NULL AND stock_qty > 0 AND stock_qty <= $low_thr ORDER BY stock_qty ASC LIMIT 5");
+while ($lp = mysqli_fetch_assoc($low_q)) {
+    notify_admin('low_stock', ['product'=>$lp['productName'], 'qty'=>$lp['stock_qty']]);
+}
 echo "<script>alert('Order updated sucessfully...');</script>";
 //}
 }

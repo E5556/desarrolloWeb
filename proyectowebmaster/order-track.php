@@ -23,17 +23,33 @@ if (!$order_q || mysqli_num_rows($order_q) === 0) {
 }
 $order = mysqli_fetch_assoc($order_q);
 
-// Status timeline steps
-$statuses = ['Pending', 'Processing', 'Shipped', 'Out for Delivery', 'Delivered'];
+// Status timeline — soporta flujo nuevo y legado
+$statuses = ['Borrador','Confirmada','En gestión','Despachada','Entregada'];
 $status_labels = [
-    'Pending'          => 'Pedido recibido',
-    'Processing'       => 'En preparacion',
-    'Shipped'          => 'Enviado',
-    'Out for Delivery' => 'En camino',
-    'Delivered'        => 'Entregado',
+    'Borrador'    => 'Pedido recibido',
+    'Confirmada'  => 'Confirmado',
+    'En gestión'  => 'En preparación',
+    'Despachada'  => 'En camino',
+    'Entregada'   => 'Entregado',
+    // Legados
+    'Pending'     => 'Pedido recibido',
+    'in Process'  => 'En preparación',
+    'Delivered'   => 'Entregado',
 ];
+$status_icons = ['Borrador'=>'📋','Confirmada'=>'✅','En gestión'=>'🔄','Despachada'=>'🚚','Entregada'=>'📦'];
 $current_idx = array_search($order['orderStatus'], $statuses);
-if ($current_idx === false) $current_idx = 0;
+if ($current_idx === false) {
+    // Mapeo legado
+    $legacy = ['Pending'=>0,'in Process'=>2,'Delivered'=>4];
+    $current_idx = $legacy[$order['orderStatus']] ?? 0;
+}
+
+// Historial de cambios de estado
+$track_q = mysqli_query($con,
+    "SELECT status, remark, postingDate FROM ordertrackhistory
+     WHERE orderId={$order['id']} ORDER BY postingDate ASC");
+$track_hist = [];
+while ($th = mysqli_fetch_assoc($track_q)) $track_hist[] = $th;
 
 $host_base = 'http://'.$_SERVER['HTTP_HOST'];
 ?>

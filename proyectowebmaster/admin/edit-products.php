@@ -29,12 +29,33 @@ if(isset($_POST['submit']))
 	mysqli_query($con, "ALTER TABLE products ADD COLUMN IF NOT EXISTS supplier_id INT DEFAULT NULL");
 	$_sq_val = is_null($stock_qty) ? 'NULL' : intval($stock_qty);
 	$_sup_id = isset($_POST['supplier_id']) && intval($_POST['supplier_id']) > 0 ? intval($_POST['supplier_id']) : 'NULL';
-// Check previous stock before update (for restock notifications)
-$_prev_q = mysqli_query($con, "SELECT stock_qty, productAvailability FROM products WHERE id='$pid' LIMIT 1");
+// FF3 — Auditoría de precios: guardar precio anterior antes de actualizar
+mysqli_query($con,"CREATE TABLE IF NOT EXISTS price_history (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    product_id INT NOT NULL,
+    old_price DECIMAL(12,2) DEFAULT 0,
+    new_price DECIMAL(12,2) DEFAULT 0,
+    old_sale_price DECIMAL(12,2) DEFAULT 0,
+    new_sale_price DECIMAL(12,2) DEFAULT 0,
+    changed_by VARCHAR(80) DEFAULT '',
+    changed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    INDEX(product_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+$_prev_q = mysqli_query($con, "SELECT stock_qty, productAvailability, productPrice, productPriceBeforeDiscount FROM products WHERE id='$pid' LIMIT 1");
 $_prev   = $_prev_q ? mysqli_fetch_assoc($_prev_q) : [];
 $_was_out = (!isset($_prev['stock_qty']) || intval($_prev['stock_qty']) <= 0) || $_prev['productAvailability'] === 'Out of Stock';
 
 $sql=mysqli_query($con,"UPDATE products SET category='$category', subCategory='$subcat', productName='$productname', productCompany='$productcompany', productPurchasePrice='$productpurchaseprice', productPriceBeforeDiscount='$productsaleprice', productPrice='$productdiscountprice', hasDiscount='$hasdiscount', productDescription='$productdescription', shippingCharge='$productscharge', productAvailability='$productavailability', stock_qty=$_sq_val, supplier_id=$_sup_id WHERE id='$pid'");
+
+// Registrar cambio de precio si cambió
+$old_price = floatval($_prev['productPrice'] ?? 0);
+$old_sale  = floatval($_prev['productPriceBeforeDiscount'] ?? 0);
+if ($sql && ($old_price !== $productdiscountprice || $old_sale !== $productsaleprice)) {
+    $adm_user = mysqli_real_escape_string($con, $_SESSION['alogin'] ?? '');
+    mysqli_query($con,"INSERT INTO price_history(product_id,old_price,new_price,old_sale_price,new_sale_price,changed_by)
+        VALUES($pid,$old_price,$productdiscountprice,$old_sale,$productsaleprice,'$adm_user')");
+}
 
 // BB2: Trigger restock notifications if product came back in stock
 if ($sql && $_was_out && !is_null($stock_qty) && $stock_qty > 0 && $productavailability === 'In Stock') {

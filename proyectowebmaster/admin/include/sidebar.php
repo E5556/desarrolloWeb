@@ -14,12 +14,13 @@
 								</a>
 								<ul id="togglePages" class="collapse unstyled">
 									<?php if (in_array($_SESSION['arole']??'super',['super','editor','asesor'])): ?>
-									<li>
-										<a href="create-order.php" style="color:#27ae60;font-weight:600">
-											<i class="icon-plus-sign" style="color:#27ae60"></i>
-											Crear pedido
-										</a>
-									</li>
+									<li><a href="create-order.php" style="color:#27ae60;font-weight:600"><i class="icon-plus-sign" style="color:#27ae60"></i> Crear pedido</a></li>
+									<li><a href="my-orders.php"><i class="menu-icon icon-list"></i>Mis Pedidos</a></li>
+									<li><a href="quotations.php"><i class="menu-icon icon-file-text"></i>Cotizaciones</a></li>
+									<li><a href="purchase-orders.php"><i class="menu-icon icon-truck"></i>Órdenes de Compra</a></li>
+									<?php endif; ?>
+									<?php if (in_array($_SESSION['arole']??'super',['super','editor'])): ?>
+									<li><a href="asesor-report.php"><i class="menu-icon icon-user"></i>Rendimiento Asesores</a></li>
 									<?php endif; ?>
 									<li>
 										<a href="todays-orders.php">
@@ -82,6 +83,7 @@ $num1 = mysqli_num_rows($rt);
                                 <li><a href="manage-products.php"><i class="menu-icon icon-table"></i>Administrar Productos</a></li>
                                 <li><a href="inventory-adjust.php"><i class="menu-icon icon-inbox"></i>Ajustar Inventario</a></li>
                                 <li><a href="product-sales.php"><i class="menu-icon icon-bar-chart"></i>Ventas por Referencia</a></li>
+                                <li><a href="inventory-dashboard.php"><i class="menu-icon icon-dashboard"></i>Dashboard Inventario</a></li>
                                 <li><a href="product-customizer.php"><i class="menu-icon icon-magic"></i>Configurador de producto</a></li>
                         
                             </ul><!--/.widget-nav-->

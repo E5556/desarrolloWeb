@@ -133,6 +133,16 @@ if ($is_editable && $_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['add_ite
 if ($is_editable && $_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['confirm_order'])) {
     mysqli_query($con, "UPDATE orders SET orderStatus='Confirmada' WHERE group_ref='$ref_e'");
 
+    // CC3 — Notificar al admin
+    include_once('../includes/mailer.php');
+    $total_conf = array_sum(array_map(fn($l)=>($l['productPrice']+$l['shippingCharge'])*$l['quantity'], $lines));
+    notify_admin('new_order', [
+        'order_id' => $group_ref,
+        'customer' => $client_name . ' (' . $client_email . ')',
+        'total'    => number_format($total_conf, 0, '.', ','),
+        'method'   => $pay_method . ' — Asesor: ' . ($_SESSION['alogin'] ?? ''),
+    ]);
+
     // Descontar stock por cada línea del pedido
     $lines_stock = mysqli_query($con, "SELECT o.productId, o.quantity FROM orders o WHERE o.group_ref='$ref_e'");
     $admin_user  = mysqli_real_escape_string($con, $_SESSION['alogin'] ?? 'asesor');
