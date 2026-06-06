@@ -28,7 +28,7 @@ if ($_maint_on) {
     $__is_maint_page = ($__script === 'mantenimiento.php');
     $__is_admin_area = (strpos($_SERVER['SCRIPT_FILENAME'] ?? '', DIRECTORY_SEPARATOR . 'admin' . DIRECTORY_SEPARATOR) !== false);
     if (!$__is_admin && !$__is_maint_page && !$__is_admin_area) {
-        header('Location: /proyectowebmaster/mantenimiento.php');
+        header('Location: /mantenimiento.php');
         exit();
     }
 }
