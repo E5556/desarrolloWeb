@@ -14,12 +14,21 @@ mysqli_query($con, "CREATE TABLE IF NOT EXISTS admin_log (
     INDEX(created_at)
 )");
 
-$filter_admin = trim($_GET['admin'] ?? '');
-$where = $filter_admin ? "WHERE admin_user='" . mysqli_real_escape_string($con, $filter_admin) . "'" : '';
+$filter_admin  = trim($_GET['admin']  ?? '');
+$filter_action = trim($_GET['accion'] ?? '');
+$filter_from   = trim($_GET['desde']  ?? '');
+$filter_to     = trim($_GET['hasta']  ?? '');
 
-$logs = mysqli_query($con, "SELECT * FROM admin_log $where ORDER BY created_at DESC LIMIT 200");
+$conds = [];
+if ($filter_admin  !== '') $conds[] = "admin_user='" . mysqli_real_escape_string($con, $filter_admin) . "'";
+if ($filter_action !== '') $conds[] = "action LIKE '%" . mysqli_real_escape_string($con, $filter_action) . "%'";
+if ($filter_from   !== '') $conds[] = "DATE(created_at) >= '" . mysqli_real_escape_string($con, $filter_from) . "'";
+if ($filter_to     !== '') $conds[] = "DATE(created_at) <= '" . mysqli_real_escape_string($con, $filter_to) . "'";
+$where = !empty($conds) ? 'WHERE ' . implode(' AND ', $conds) : '';
 
+$logs   = mysqli_query($con, "SELECT * FROM admin_log $where ORDER BY created_at DESC LIMIT 500");
 $admins = mysqli_query($con, "SELECT DISTINCT admin_user FROM admin_log ORDER BY admin_user");
+$actions = mysqli_query($con, "SELECT DISTINCT action FROM admin_log ORDER BY action");
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -42,16 +51,48 @@ $admins = mysqli_query($con, "SELECT DISTINCT admin_user FROM admin_log ORDER BY
 
 <h3><i class="icon-list"></i> Log de actividad admin</h3>
 
-<form method="get" style="margin-bottom:14px;display:flex;gap:10px;align-items:center">
-    <select name="admin" class="form-control" style="width:auto" onchange="this.form.submit()">
-        <option value="">Todos los admins</option>
-        <?php while($a=mysqli_fetch_assoc($admins)): ?>
-        <option value="<?php echo htmlspecialchars($a['admin_user']); ?>" <?php echo $filter_admin===$a['admin_user']?'selected':''; ?>>
-            <?php echo htmlspecialchars($a['admin_user']); ?>
-        </option>
-        <?php endwhile; ?>
-    </select>
-    <a href="admin-log.php" class="btn btn-default btn-sm">Limpiar filtro</a>
+<form method="get" style="margin-bottom:14px;background:#f8f9fa;padding:14px;border-radius:8px;border:1px solid #e0e0e0">
+    <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end">
+        <div>
+            <label style="font-size:12px;color:#555;display:block;margin-bottom:3px">Usuario</label>
+            <select name="admin" class="form-control">
+                <option value="">Todos</option>
+                <?php while($a=mysqli_fetch_assoc($admins)): ?>
+                <option value="<?php echo htmlspecialchars($a['admin_user']); ?>" <?php echo $filter_admin===$a['admin_user']?'selected':''; ?>>
+                    <?php echo htmlspecialchars($a['admin_user']); ?>
+                </option>
+                <?php endwhile; ?>
+            </select>
+        </div>
+        <div>
+            <label style="font-size:12px;color:#555;display:block;margin-bottom:3px">Acción</label>
+            <select name="accion" class="form-control">
+                <option value="">Todas</option>
+                <?php while($ac=mysqli_fetch_assoc($actions)): ?>
+                <option value="<?php echo htmlspecialchars($ac['action']); ?>" <?php echo $filter_action===$ac['action']?'selected':''; ?>>
+                    <?php echo htmlspecialchars($ac['action']); ?>
+                </option>
+                <?php endwhile; ?>
+            </select>
+        </div>
+        <div>
+            <label style="font-size:12px;color:#555;display:block;margin-bottom:3px">Desde</label>
+            <input type="date" name="desde" class="form-control" value="<?php echo htmlspecialchars($filter_from); ?>">
+        </div>
+        <div>
+            <label style="font-size:12px;color:#555;display:block;margin-bottom:3px">Hasta</label>
+            <input type="date" name="hasta" class="form-control" value="<?php echo htmlspecialchars($filter_to); ?>">
+        </div>
+        <div>
+            <button type="submit" class="btn btn-primary">Filtrar</button>
+            <a href="admin-log.php" class="btn btn-default">Limpiar</a>
+        </div>
+    </div>
+    <?php if (!empty($conds)): ?>
+    <div style="margin-top:8px;font-size:12px;color:#888">
+        Mostrando <strong><?php echo mysqli_num_rows($logs); ?></strong> resultado(s) con filtros aplicados.
+    </div>
+    <?php endif; ?>
 </form>
 
 <table class="table table-bordered table-condensed table-hover table-striped">

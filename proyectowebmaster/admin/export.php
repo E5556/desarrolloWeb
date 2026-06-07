@@ -92,7 +92,7 @@ switch ($type) {
     case 'stock_movements':
         admin_require_perm('perm_products');
         $r = mysqli_query($con,
-            "SELECT sm.id, p.productName, sm.type as tipo, sm.qty_change as cambio,
+            "SELECT sm.id, p.productName, sm.type as tipo, sm.change_qty as cambio,
                     sm.qty_after as stock_resultante, sm.reason as razon,
                     sm.admin_user as usuario, sm.created_at as fecha
              FROM stock_movements sm

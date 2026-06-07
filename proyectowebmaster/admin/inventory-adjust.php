@@ -5,46 +5,53 @@ include('include/config.php');
 if (empty($_SESSION['alogin'])) { header('location:index.php'); exit(); }
 admin_require_perm('perm_products');
 
-mysqli_query($con, "CREATE TABLE IF NOT EXISTS stock_movements (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    product_id INT NOT NULL,
-    type ENUM('in','out','adjustment') NOT NULL DEFAULT 'adjustment',
-    qty_change INT NOT NULL,
-    qty_after INT DEFAULT NULL,
-    reason VARCHAR(200) DEFAULT '',
-    admin_user VARCHAR(80) DEFAULT '',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    INDEX(product_id), INDEX(created_at)
-)");
+// Agregar columnas faltantes si no existen
+mysqli_report(MYSQLI_REPORT_OFF);
+mysqli_query($con, "ALTER TABLE stock_movements ADD COLUMN type ENUM('in','out','adjustment') NOT NULL DEFAULT 'adjustment' AFTER product_id");
+mysqli_query($con, "ALTER TABLE stock_movements ADD COLUMN qty_after INT DEFAULT NULL AFTER change_qty");
+mysqli_query($con, "ALTER TABLE stock_movements ADD COLUMN admin_user VARCHAR(80) DEFAULT '' AFTER qty_after");
+mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
 $msg = ''; $mtyp = '';
 
 // ── Procesar ajuste / entrada ────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['do_adjust'])) {
-    $pids    = $_POST['product_id']  ?? [];
-    $qtys    = $_POST['qty_change']  ?? [];
-    $reasons = $_POST['reason']      ?? [];
-    $types   = $_POST['mov_type']    ?? [];
+    $pids    = array_values($_POST['product_id']  ?? []);
+    $qtys    = array_values($_POST['qty_change']  ?? []);
+    $reasons = array_values($_POST['reason']      ?? []);
+    $types   = array_values($_POST['mov_type']    ?? []);
     $admin_user = mysqli_real_escape_string($con, $_SESSION['alogin'] ?? '');
     $count = 0;
 
-    foreach ($pids as $i => $pid_i) {
-        $pid_i  = intval($pid_i);
+    for ($i = 0; $i < count($pids); $i++) {
+        $pid_i  = intval($pids[$i]);
         $qty_i  = intval($qtys[$i] ?? 0);
-        $type_i = in_array($types[$i]??'', ['in','out','adjustment']) ? $types[$i] : 'in';
+        $type_i = in_array($types[$i] ?? '', ['in','out','adjustment']) ? $types[$i] : 'in';
         $reason = mysqli_real_escape_string($con, substr($reasons[$i] ?? '', 0, 200));
         if ($pid_i <= 0 || $qty_i <= 0) continue;
 
-        $delta = ($type_i === 'out') ? -$qty_i : $qty_i;
-        mysqli_query($con, "UPDATE products SET stock_qty = GREATEST(0, COALESCE(stock_qty,0) + $delta) WHERE id=$pid_i");
-        // Si entra stock, marcar como In Stock
-        if ($delta > 0) mysqli_query($con, "UPDATE products SET productAvailability='In Stock' WHERE id=$pid_i AND (stock_qty > 0 OR stock_qty IS NULL)");
-        if ($delta < 0) mysqli_query($con, "UPDATE products SET productAvailability='Out of Stock' WHERE id=$pid_i AND stock_qty IS NOT NULL AND stock_qty=0");
+        // Obtener stock actual antes del cambio
+        $qa_before = mysqli_fetch_assoc(mysqli_query($con, "SELECT COALESCE(stock_qty,0) stock_qty FROM products WHERE id=$pid_i LIMIT 1"));
+        $stock_before = intval($qa_before['stock_qty'] ?? 0);
 
+        if ($type_i === 'adjustment') {
+            // Ajuste manual: reemplaza el stock al valor exacto ingresado
+            $delta = $qty_i - $stock_before;
+            mysqli_query($con, "UPDATE products SET stock_qty = $qty_i WHERE id=$pid_i");
+        } else {
+            $delta = ($type_i === 'out') ? -$qty_i : $qty_i;
+            mysqli_query($con, "UPDATE products SET stock_qty = GREATEST(0, $stock_before + $delta) WHERE id=$pid_i");
+        }
+
+        // Actualizar disponibilidad
         $qa = mysqli_fetch_assoc(mysqli_query($con, "SELECT stock_qty FROM products WHERE id=$pid_i LIMIT 1"));
         $qty_after = intval($qa['stock_qty'] ?? 0);
-        mysqli_query($con, "INSERT INTO stock_movements(product_id,type,qty_change,qty_after,reason,admin_user)
-            VALUES($pid_i,'$type_i',$delta,$qty_after,'$reason','$admin_user')");
+        if ($qty_after > 0) mysqli_query($con, "UPDATE products SET productAvailability='In Stock' WHERE id=$pid_i");
+        else mysqli_query($con, "UPDATE products SET productAvailability='Out of Stock' WHERE id=$pid_i");
+
+        $aid = intval($_SESSION['aid'] ?? 0);
+        mysqli_query($con, "INSERT INTO stock_movements(product_id,type,change_qty,qty_after,reason,admin_user,admin_id)
+            VALUES($pid_i,'$type_i',$delta,$qty_after,'$reason','$admin_user',$aid)");
         $count++;
     }
     $msg  = $count > 0 ? "✅ $count movimiento(s) registrado(s) correctamente." : 'No se procesó ningún movimiento (verifica los datos).';
@@ -62,6 +69,18 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'products') {
     $out = [];
     while ($r = mysqli_fetch_assoc($rs)) $out[] = $r;
     echo json_encode($out); exit();
+}
+
+// Producto precargado desde edit-products
+$preload_product = null;
+if (isset($_GET['load_pid']) && intval($_GET['load_pid']) > 0) {
+    $lp = intval($_GET['load_pid']);
+    $lpr = mysqli_fetch_assoc(mysqli_query($con,
+        "SELECT p.id, p.productName, p.productPrice, p.stock_qty, p.productAvailability,
+                COALESCE(s.name,'—') as supplier_name
+         FROM products p LEFT JOIN suppliers s ON s.id=p.supplier_id
+         WHERE p.id=$lp LIMIT 1"));
+    if ($lpr) $preload_product = $lpr;
 }
 
 // Proveedores para referencia
@@ -163,8 +182,8 @@ while ($h = mysqli_fetch_assoc($hist_q)) $hist[] = $h;
                 <?php elseif ($h['type']==='out'): ?><span class="mov-out">↓ Salida</span>
                 <?php else: ?><span class="mov-adj">⟳ Ajuste</span><?php endif; ?>
             </td>
-            <td class="<?php echo $h['qty_change']>0?'mov-in':($h['qty_change']<0?'mov-out':'mov-adj'); ?>">
-                <?php echo ($h['qty_change']>0?'+':'').$h['qty_change']; ?>
+            <td class="<?php echo $h['change_qty']>0?'mov-in':($h['change_qty']<0?'mov-out':'mov-adj'); ?>">
+                <?php echo ($h['change_qty']>0?'+':'').$h['change_qty']; ?>
             </td>
             <td><strong><?php echo $h['qty_after']??'—'; ?></strong></td>
             <td style="color:#555"><?php echo htmlspecialchars($h['reason']); ?></td>
@@ -232,8 +251,9 @@ function addItem(pid, name, stock) {
         +     '</select>'
         +   '</div>'
         +   '<div>'
-        +     '<label style="font-size:.8em;color:#555">Cantidad</label>'
-        +     '<input type="number" name="qty_change[]" value="1" min="1" style="width:80px">'
+        +     '<label style="font-size:.8em;color:#555" class="qty-label">Cantidad</label>'
+        +     '<input type="number" name="qty_change[]" value="1" min="0" class="qty-input" style="width:80px">'
+        +     '<div class="qty-hint" style="font-size:.75em;color:#888;margin-top:2px">Unidades a sumar</div>'
         +   '</div>'
         +   '<div style="flex:2;min-width:200px">'
         +     '<label style="font-size:.8em;color:#555">Razón / Referencia</label>'
@@ -254,6 +274,35 @@ $(document).on('click', function(e) {
 });
 
 function escH(s) { var d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+// Actualizar hint de cantidad según tipo de movimiento
+$(document).on('change', 'select[name="mov_type[]"]', function() {
+    var row = $(this).closest('.item-row');
+    var hint = row.find('.qty-hint');
+    var label = row.find('.qty-label');
+    var t = $(this).val();
+    if (t === 'adjustment') {
+        hint.text('Stock TOTAL final (reemplaza el actual)').css('color','#e67e22');
+        label.text('Stock final');
+    } else if (t === 'out') {
+        hint.text('Unidades a restar').css('color','#e8233a');
+        label.text('Cantidad');
+    } else {
+        hint.text('Unidades a sumar').css('color','#27ae60');
+        label.text('Cantidad');
+    }
+});
+
+// Autocargar producto si viene desde edit-products
+<?php if ($preload_product): ?>
+$(function(){
+    addItem(
+        <?php echo intval($preload_product['id']); ?>,
+        <?php echo json_encode($preload_product['productName']); ?>,
+        <?php echo intval($preload_product['stock_qty'] ?? 0); ?>
+    );
+});
+<?php endif; ?>
 </script>
 </body>
 </html>

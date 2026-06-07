@@ -105,7 +105,7 @@ $res = mysqli_query($con, "SELECT * FROM contact_messages $where ORDER BY id DES
                     <?php if(!$row['is_read']): ?><span class="badge-unread">Nuevo</span><?php endif; ?></td>
                 <td>
                     <a href="mailto:<?php echo htmlspecialchars($row['email']); ?>"><?php echo htmlspecialchars($row['email']); ?></a>
-                    <?php if($row['phone']): ?><br><small><?php echo htmlspecialchars($row['phone']); ?></small><?php endif; ?>
+                    <?php if(!empty($row['phone'])): ?><br><small><?php echo htmlspecialchars($row['phone']); ?></small><?php endif; ?>
                 </td>
                 <td><?php echo htmlspecialchars($row['subject'] ?? '—'); ?></td>
                 <td class="msg-preview" title="<?php echo htmlspecialchars($row['message']); ?>">
@@ -132,7 +132,7 @@ $res = mysqli_query($con, "SELECT * FROM contact_messages $where ORDER BY id DES
                 </div>
                 <div class="modal-body">
                     <p><strong>Email:</strong> <a href="mailto:<?php echo htmlspecialchars($row['email']); ?>"><?php echo htmlspecialchars($row['email']); ?></a></p>
-                    <?php if($row['phone']): ?><p><strong>Teléfono:</strong> <?php echo htmlspecialchars($row['phone']); ?></p><?php endif; ?>
+                    <?php if(!empty($row['phone'])): ?><p><strong>Teléfono:</strong> <?php echo htmlspecialchars($row['phone']); ?></p><?php endif; ?>
                     <?php if($row['subject']): ?><p><strong>Asunto:</strong> <?php echo htmlspecialchars($row['subject']); ?></p><?php endif; ?>
                     <p><strong>Fecha:</strong> <?php echo date('d/m/Y H:i', strtotime($row['created_at'])); ?></p>
                     <hr>

@@ -26,8 +26,8 @@ while($r=mysqli_fetch_assoc($rot_q)){$rot_names[]=$r['productName'];$rot_sales[]
 // Movimientos últimos 30 días
 $mov_q = mysqli_query($con,
     "SELECT DATE(created_at) as dia,
-            SUM(CASE WHEN type='in' THEN qty_change ELSE 0 END) as entradas,
-            SUM(CASE WHEN type='out' THEN ABS(qty_change) ELSE 0 END) as salidas
+            SUM(CASE WHEN change_qty > 0 THEN change_qty ELSE 0 END) as entradas,
+            SUM(CASE WHEN change_qty < 0 THEN ABS(change_qty) ELSE 0 END) as salidas
      FROM stock_movements
      WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
      GROUP BY dia ORDER BY dia ASC");

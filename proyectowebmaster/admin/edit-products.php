@@ -118,22 +118,13 @@ if (!empty($_FILES['new_productimages']['name'])) {
 }
 
 // ── G3: Guardar variantes ─────────────────────────────────────────────────
-mysqli_query($con, "CREATE TABLE IF NOT EXISTS product_variants (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    product_id INT NOT NULL,
-    attr_name VARCHAR(60) NOT NULL,
-    attr_value VARCHAR(60) NOT NULL,
-    stock_qty INT DEFAULT NULL,
-    price_modifier DECIMAL(12,2) DEFAULT 0,
-    INDEX(product_id)
-)");
 if (!empty($_POST['var_attr_name'])) {
     mysqli_query($con, "DELETE FROM product_variants WHERE product_id=$pid");
-    $vstmt = mysqli_prepare($con, "INSERT INTO product_variants (product_id,attr_name,attr_value,stock_qty,price_modifier) VALUES(?,?,?,?,?)");
+    $vstmt = mysqli_prepare($con, "INSERT INTO product_variants (product_id,variant_name,variant_value,stock_qty,price_extra) VALUES(?,?,?,?,?)");
     foreach ($_POST['var_attr_name'] as $vi => $vattr) {
         $vattr  = trim($vattr);
         $vval   = trim($_POST['var_attr_value'][$vi] ?? '');
-        $vstk   = $_POST['var_stock'][$vi] !== '' ? intval($_POST['var_stock'][$vi]) : null;
+        $vstk   = (isset($_POST['var_stock'][$vi]) && $_POST['var_stock'][$vi] !== '') ? intval($_POST['var_stock'][$vi]) : null;
         $vmod   = floatval($_POST['var_price_mod'][$vi] ?? 0);
         if ($vattr === '' || $vval === '') continue;
         mysqli_stmt_bind_param($vstmt,'issid',$pid,$vattr,$vval,$vstk,$vmod);
@@ -383,10 +374,17 @@ foreach($_av_opts as $_val=>$_label): ?>
 <div class="control-group">
 <label class="control-label">Stock (unidades)</label>
 <div class="controls">
-<input type="number" min="0" name="stock_qty"
-       value="<?php echo isset($row['stock_qty']) && $row['stock_qty'] !== null ? intval($row['stock_qty']) : ''; ?>"
-       placeholder="Vacío = sin control de stock" class="span6">
-<span class="help-inline">Se descuenta automáticamente con cada compra</span>
+<?php $_stk_val = isset($row['stock_qty']) && $row['stock_qty'] !== null ? intval($row['stock_qty']) : null; ?>
+<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <span style="font-size:1.4em;font-weight:700;color:<?php echo ($_stk_val === null ? '#aaa' : ($_stk_val > 5 ? '#27ae60' : ($_stk_val > 0 ? '#e67e22' : '#e8233a'))); ?>">
+        <?php echo $_stk_val !== null ? $_stk_val . ' uds.' : '— sin control'; ?>
+    </span>
+    <a href="inventory-adjust.php?load_pid=<?php echo $pid; ?>" class="btn btn-sm btn-default" style="padding:5px 12px;font-size:.82em">
+        <i class="icon-inbox"></i> Ajustar stock
+    </a>
+    <span style="font-size:.78em;color:#aaa">Se descuenta automáticamente con cada compra</span>
+</div>
+<input type="hidden" name="stock_qty" value="<?php echo $_stk_val !== null ? $_stk_val : ''; ?>">
 </div>
 </div>
 
@@ -411,62 +409,88 @@ $_cur_sup = isset($row['supplier_id']) ? intval($row['supplier_id']) : 0;
 
 <?php
 // ── G3: Cargar variantes existentes ──────────────────────────────────────
-mysqli_query($con, "CREATE TABLE IF NOT EXISTS product_variants (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    product_id INT NOT NULL,
-    attr_name VARCHAR(60) NOT NULL,
-    attr_value VARCHAR(60) NOT NULL,
-    stock_qty INT DEFAULT NULL,
-    price_modifier DECIMAL(12,2) DEFAULT 0,
-    INDEX(product_id)
-)");
 $_variants = [];
 $_vq = mysqli_query($con, "SELECT * FROM product_variants WHERE product_id=$pid ORDER BY id");
 while ($_vr = mysqli_fetch_assoc($_vq)) $_variants[] = $_vr;
 ?>
 
 <!-- ── VARIANTES (talla/color/etc.) ── -->
+<style>
+.var-card { background:#f8f9fa; border:1px solid #e0e0e0; border-radius:6px; padding:10px 12px; margin-bottom:8px; display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; position:relative; }
+.var-card .var-field { display:flex; flex-direction:column; gap:3px; }
+.var-card .var-field label { font-size:.75em; color:#777; font-weight:600; margin:0; }
+.var-card .var-field input { border:1px solid #ccc; border-radius:4px; padding:5px 8px; font-size:.85em; }
+.var-card .var-field input:focus { border-color:#337ab7; outline:none; }
+.var-card .var-del { position:absolute; top:8px; right:8px; background:#e8233a; color:#fff; border:none; border-radius:50%; width:22px; height:22px; cursor:pointer; font-size:13px; line-height:22px; text-align:center; padding:0; }
+.var-card .var-del:hover { background:#c0392b; }
+.var-sep { font-size:.75em; color:#aaa; border-top:1px dashed #ddd; margin:4px 0 8px; padding-top:8px; }
+</style>
 <div class="control-group">
-<label class="control-label">Variantes (talla / color / etc.)</label>
-<div class="controls">
-<table class="table table-condensed" id="variants-table" style="max-width:600px">
-<thead><tr>
-    <th>Atributo (ej: Talla)</th>
-    <th>Valor (ej: XL)</th>
-    <th>Stock</th>
-    <th>Mod. precio (+/-)</th>
-    <th></th>
-</tr></thead>
-<tbody id="variants-body">
+<label class="control-label">Variantes <small style="color:#aaa">(talla / color / etc.)</small></label>
+<div class="controls" style="max-width:580px">
+<div id="variants-body">
 <?php if (empty($_variants)): ?>
-<tr class="var-row">
-    <td><input type="text" name="var_attr_name[]" class="span2" placeholder="Talla"></td>
-    <td><input type="text" name="var_attr_value[]" class="span2" placeholder="S"></td>
-    <td><input type="number" name="var_stock[]" class="span1" min="0" placeholder="—"></td>
-    <td><input type="number" name="var_price_mod[]" class="span1" step="0.01" placeholder="0"></td>
-    <td><button type="button" class="btn btn-mini btn-danger" onclick="removeVarRow(this)">✕</button></td>
-</tr>
+<div class="var-card">
+    <div class="var-field" style="flex:2;min-width:110px">
+        <label>Atributo</label>
+        <input type="text" name="var_attr_name[]" placeholder="ej: Talla">
+    </div>
+    <div class="var-field" style="flex:2;min-width:90px">
+        <label>Valor</label>
+        <input type="text" name="var_attr_value[]" placeholder="ej: XL">
+    </div>
+    <div class="var-field" style="flex:1;min-width:70px">
+        <label>Stock</label>
+        <input type="number" name="var_stock[]" min="0" placeholder="—">
+    </div>
+    <div class="var-field" style="flex:1;min-width:80px">
+        <label>+/- Precio</label>
+        <input type="number" name="var_price_mod[]" step="0.01" placeholder="0">
+    </div>
+    <button type="button" class="var-del" onclick="removeVarRow(this)" title="Eliminar variante">✕</button>
+</div>
 <?php else: foreach($_variants as $_v): ?>
-<tr class="var-row">
-    <td><input type="text" name="var_attr_name[]" class="span2" value="<?php echo htmlspecialchars($_v['attr_name']); ?>"></td>
-    <td><input type="text" name="var_attr_value[]" class="span2" value="<?php echo htmlspecialchars($_v['attr_value']); ?>"></td>
-    <td><input type="number" name="var_stock[]" class="span1" min="0" value="<?php echo $_v['stock_qty'] !== null ? intval($_v['stock_qty']) : ''; ?>"></td>
-    <td><input type="number" name="var_price_mod[]" class="span1" step="0.01" value="<?php echo floatval($_v['price_modifier']); ?>"></td>
-    <td><button type="button" class="btn btn-mini btn-danger" onclick="removeVarRow(this)">✕</button></td>
-</tr>
+<div class="var-card">
+    <div class="var-field" style="flex:2;min-width:110px">
+        <label>Atributo</label>
+        <input type="text" name="var_attr_name[]" value="<?php echo htmlspecialchars($_v['variant_name']); ?>">
+    </div>
+    <div class="var-field" style="flex:2;min-width:90px">
+        <label>Valor</label>
+        <input type="text" name="var_attr_value[]" value="<?php echo htmlspecialchars($_v['variant_value']); ?>">
+    </div>
+    <div class="var-field" style="flex:1;min-width:70px">
+        <label>Stock</label>
+        <input type="number" name="var_stock[]" min="0" value="<?php echo $_v['stock_qty'] !== null ? intval($_v['stock_qty']) : ''; ?>">
+    </div>
+    <div class="var-field" style="flex:1;min-width:80px">
+        <label>+/- Precio</label>
+        <input type="number" name="var_price_mod[]" step="0.01" value="<?php echo floatval($_v['price_extra']); ?>">
+    </div>
+    <button type="button" class="var-del" onclick="removeVarRow(this)" title="Eliminar variante">✕</button>
+</div>
 <?php endforeach; endif; ?>
-</tbody>
-</table>
-<button type="button" class="btn btn-mini btn-default" onclick="addVarRow()">+ Agregar variante</button>
-<span class="help-inline">Deja vacío si el producto no tiene variantes</span>
+</div>
+<div style="margin-top:8px;display:flex;align-items:center;gap:12px">
+    <button type="button" class="btn btn-mini btn-default" onclick="addVarRow()">
+        <i class="icon-plus"></i> Agregar variante
+    </button>
+    <span style="font-size:.78em;color:#aaa">Deja vacío si el producto no tiene variantes. El campo "+/- Precio" suma o resta del precio base.</span>
+</div>
 </div>
 </div>
 <script>
 function addVarRow(){
-    var tr = '<tr class="var-row"><td><input type="text" name="var_attr_name[]" class="span2" placeholder="Talla"></td><td><input type="text" name="var_attr_value[]" class="span2" placeholder="S"></td><td><input type="number" name="var_stock[]" class="span1" min="0" placeholder="—"></td><td><input type="number" name="var_price_mod[]" class="span1" step="0.01" placeholder="0"></td><td><button type="button" class="btn btn-mini btn-danger" onclick="removeVarRow(this)">✕</button></td></tr>';
-    document.getElementById('variants-body').insertAdjacentHTML('beforeend',tr);
+    var card = '<div class="var-card">'
+        + '<div class="var-field" style="flex:2;min-width:110px"><label>Atributo</label><input type="text" name="var_attr_name[]" placeholder="ej: Talla"></div>'
+        + '<div class="var-field" style="flex:2;min-width:90px"><label>Valor</label><input type="text" name="var_attr_value[]" placeholder="ej: XL"></div>'
+        + '<div class="var-field" style="flex:1;min-width:70px"><label>Stock</label><input type="number" name="var_stock[]" min="0" placeholder="—"></div>'
+        + '<div class="var-field" style="flex:1;min-width:80px"><label>+/- Precio</label><input type="number" name="var_price_mod[]" step="0.01" placeholder="0"></div>'
+        + '<button type="button" class="var-del" onclick="removeVarRow(this)" title="Eliminar variante">✕</button>'
+        + '</div>';
+    document.getElementById('variants-body').insertAdjacentHTML('beforeend', card);
 }
-function removeVarRow(btn){ btn.closest('tr').remove(); }
+function removeVarRow(btn){ btn.closest('.var-card').remove(); }
 </script>
 
 <?php

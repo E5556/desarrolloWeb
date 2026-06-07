@@ -4,46 +4,32 @@ include('include/config.php');
 if (empty($_SESSION['alogin'])) { header('location:index.php'); exit(); }
 admin_require_perm('perm_products');
 
-// Auto-create table
-mysqli_query($con, "CREATE TABLE IF NOT EXISTS stock_movements (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    product_id INT NOT NULL,
-    type ENUM('in','out','adjustment') NOT NULL DEFAULT 'adjustment',
-    qty_change INT NOT NULL,
-    qty_after INT DEFAULT NULL,
-    reason VARCHAR(200) DEFAULT '',
-    admin_user VARCHAR(80) DEFAULT '',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    INDEX(product_id),
-    INDEX(created_at)
-)");
+// Agregar columnas faltantes si no existen
+mysqli_report(MYSQLI_REPORT_OFF);
+mysqli_query($con, "ALTER TABLE stock_movements ADD COLUMN type ENUM('in','out','adjustment') NOT NULL DEFAULT 'adjustment' AFTER product_id");
+mysqli_query($con, "ALTER TABLE stock_movements ADD COLUMN qty_after INT DEFAULT NULL AFTER change_qty");
+mysqli_query($con, "ALTER TABLE stock_movements ADD COLUMN admin_user VARCHAR(80) DEFAULT '' AFTER qty_after");
+mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
-// Manual adjustment
-if (isset($_POST['adjust'])) {
-    $pid   = intval($_POST['product_id']);
-    $delta = intval($_POST['qty_change']);
-    $reason = trim(substr($_POST['reason']??'',0,200));
-    $type  = $delta > 0 ? 'in' : ($delta < 0 ? 'out' : 'adjustment');
-    if ($pid > 0 && $delta !== 0) {
-        // Update stock
-        mysqli_query($con, "UPDATE products SET stock_qty = GREATEST(0, COALESCE(stock_qty,0) + $delta) WHERE id=$pid");
-        $qty_after_row = mysqli_fetch_assoc(mysqli_query($con,"SELECT stock_qty FROM products WHERE id=$pid LIMIT 1"));
-        $qty_after = intval($qty_after_row['stock_qty'] ?? 0);
-        $admin_u = $_SESSION['alogin'];
-        $stmt = mysqli_prepare($con,"INSERT INTO stock_movements (product_id,type,qty_change,qty_after,reason,admin_user) VALUES(?,?,?,?,?,?)");
-        mysqli_stmt_bind_param($stmt,'isiiss',$pid,$type,$delta,$qty_after,$reason,$admin_u);
-        mysqli_stmt_execute($stmt); mysqli_stmt_close($stmt);
-        header('location:stock-history.php?ok=1&pid='.$pid); exit();
-    }
-}
 
-// Filter
-$filter_pid = intval($_GET['pid'] ?? 0);
-$page = max(1, intval($_GET['page'] ?? 1));
-$per_page = 50;
-$offset = ($page-1)*$per_page;
+// Filters
+$filter_pid  = intval($_GET['pid'] ?? 0);
+$filter_type = $_GET['tipo'] ?? '';
+$filter_user = trim($_GET['usuario'] ?? '');
+$filter_from = $_GET['desde'] ?? '';
+$filter_to   = $_GET['hasta'] ?? '';
+$page        = max(1, intval($_GET['page'] ?? 1));
+$per_page    = 50;
+$offset      = ($page-1)*$per_page;
 
-$where = $filter_pid > 0 ? "WHERE sm.product_id=$filter_pid" : '';
+$conds = [];
+if ($filter_pid > 0) $conds[] = "sm.product_id=$filter_pid";
+if (in_array($filter_type, ['in','out','adjustment'])) $conds[] = "sm.type='".mysqli_real_escape_string($con,$filter_type)."'";
+if ($filter_user !== '') $conds[] = "sm.admin_user LIKE '%".mysqli_real_escape_string($con,$filter_user)."%'";
+if ($filter_from !== '') $conds[] = "DATE(sm.created_at) >= '".mysqli_real_escape_string($con,$filter_from)."'";
+if ($filter_to   !== '') $conds[] = "DATE(sm.created_at) <= '".mysqli_real_escape_string($con,$filter_to)."'";
+$where = !empty($conds) ? 'WHERE ' . implode(' AND ', $conds) : '';
+
 $total_q = mysqli_fetch_assoc(mysqli_query($con,"SELECT COUNT(*) n FROM stock_movements sm $where"));
 $total = intval($total_q['n']);
 $pages = max(1, ceil($total/$per_page));
@@ -52,6 +38,11 @@ $movements = mysqli_query($con,
     "SELECT sm.*, p.productName FROM stock_movements sm
      JOIN products p ON p.id=sm.product_id
      $where ORDER BY sm.created_at DESC LIMIT $per_page OFFSET $offset");
+
+// Usuarios únicos para el filtro
+$users_q = mysqli_query($con, "SELECT DISTINCT admin_user FROM stock_movements WHERE admin_user != '' ORDER BY admin_user");
+$users_list = [];
+while ($u = mysqli_fetch_assoc($users_q)) $users_list[] = $u['admin_user'];
 
 $products = mysqli_query($con,"SELECT id,productName,stock_qty FROM products ORDER BY productName");
 ?>
@@ -86,51 +77,59 @@ $products = mysqli_query($con,"SELECT id,productName,stock_qty FROM products ORD
 <?php endif; ?>
 
 <div class="row">
-<div class="col-md-4">
-<div class="panel panel-default">
-<div class="panel-heading"><strong><i class="icon-plus"></i> Ajuste manual de stock</strong></div>
-<div class="panel-body">
-<form method="post">
-<div class="form-group">
-    <label>Producto</label>
-    <select name="product_id" class="form-control" required>
-        <option value="">-- Selecciona --</option>
-        <?php mysqli_data_seek($products,0); while ($p = mysqli_fetch_assoc($products)): ?>
-        <option value="<?php echo $p['id']; ?>" <?php echo ($filter_pid==$p['id']?'selected':''); ?>>
-            <?php echo htmlspecialchars($p['productName']); ?>
-            (stock: <?php echo $p['stock_qty'] ?? 'N/A'; ?>)
-        </option>
-        <?php endwhile; ?>
-    </select>
-</div>
-<div class="form-group">
-    <label>Cambio de cantidad</label>
-    <input type="number" name="qty_change" class="form-control" required placeholder="+10 = entrada, -5 = salida">
-    <p class="help-block">Positivo = entrada, Negativo = salida</p>
-</div>
-<div class="form-group">
-    <label>Motivo</label>
-    <input type="text" name="reason" class="form-control" placeholder="Ej: Restock proveedor, Producto dañado…" maxlength="200">
-</div>
-<button type="submit" name="adjust" class="btn btn-primary">Aplicar ajuste</button>
-</form>
-</div>
-</div>
-</div>
-
-<div class="col-md-8">
-<!-- Filtro por producto -->
-<form method="get" class="form-inline" style="margin-bottom:12px">
-    <select name="pid" class="form-control">
-        <option value="0">Todos los productos</option>
-        <?php mysqli_data_seek($products,0); while ($p = mysqli_fetch_assoc($products)): ?>
-        <option value="<?php echo $p['id']; ?>" <?php echo ($filter_pid==$p['id']?'selected':''); ?>>
-            <?php echo htmlspecialchars($p['productName']); ?>
-        </option>
-        <?php endwhile; ?>
-    </select>
-    <button type="submit" class="btn btn-default">Filtrar</button>
-    <?php if ($filter_pid > 0): ?><a href="stock-history.php" class="btn btn-link">Ver todos</a><?php endif; ?>
+<div class="col-md-12">
+<!-- Filtros avanzados -->
+<form method="get" style="margin-bottom:14px;background:#f8f9fa;padding:14px;border-radius:8px;border:1px solid #e0e0e0">
+    <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end">
+        <div>
+            <label style="font-size:12px;color:#555;display:block;margin-bottom:3px">Producto</label>
+            <select name="pid" class="form-control" style="min-width:160px">
+                <option value="0">Todos</option>
+                <?php mysqli_data_seek($products,0); while ($p = mysqli_fetch_assoc($products)): ?>
+                <option value="<?php echo $p['id']; ?>" <?php echo ($filter_pid==$p['id']?'selected':''); ?>>
+                    <?php echo htmlspecialchars($p['productName']); ?>
+                </option>
+                <?php endwhile; ?>
+            </select>
+        </div>
+        <div>
+            <label style="font-size:12px;color:#555;display:block;margin-bottom:3px">Tipo</label>
+            <select name="tipo" class="form-control">
+                <option value="">Todos</option>
+                <option value="in"         <?php echo $filter_type==='in'?'selected':''; ?>>↑ Entrada</option>
+                <option value="out"        <?php echo $filter_type==='out'?'selected':''; ?>>↓ Salida</option>
+                <option value="adjustment" <?php echo $filter_type==='adjustment'?'selected':''; ?>>⟳ Ajuste</option>
+            </select>
+        </div>
+        <div>
+            <label style="font-size:12px;color:#555;display:block;margin-bottom:3px">Usuario</label>
+            <select name="usuario" class="form-control">
+                <option value="">Todos</option>
+                <?php foreach ($users_list as $u): ?>
+                <option value="<?php echo htmlspecialchars($u); ?>" <?php echo $filter_user===$u?'selected':''; ?>>
+                    <?php echo htmlspecialchars($u); ?>
+                </option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <div>
+            <label style="font-size:12px;color:#555;display:block;margin-bottom:3px">Desde</label>
+            <input type="date" name="desde" class="form-control" value="<?php echo htmlspecialchars($filter_from); ?>">
+        </div>
+        <div>
+            <label style="font-size:12px;color:#555;display:block;margin-bottom:3px">Hasta</label>
+            <input type="date" name="hasta" class="form-control" value="<?php echo htmlspecialchars($filter_to); ?>">
+        </div>
+        <div>
+            <button type="submit" class="btn btn-primary">Filtrar</button>
+            <a href="stock-history.php" class="btn btn-default">Limpiar</a>
+        </div>
+    </div>
+    <?php if (!empty($conds)): ?>
+    <div style="margin-top:8px;font-size:12px;color:#888">
+        Mostrando <strong><?php echo $total; ?></strong> resultado(s) con filtros aplicados.
+    </div>
+    <?php endif; ?>
 </form>
 
 <table class="table table-bordered table-hover table-striped" style="font-size:13px">
@@ -152,7 +151,7 @@ $products = mysqli_query($con,"SELECT id,productName,stock_qty FROM products ORD
     <td style="white-space:nowrap"><?php echo date('d/m/Y H:i', strtotime($m['created_at'])); ?></td>
     <td><?php echo htmlspecialchars($m['productName']); ?></td>
     <td><span class="label" style="background:<?php echo $color; ?>"><?php echo $m['type']==='in'?'Entrada':($m['type']==='out'?'Salida':'Ajuste'); ?></span></td>
-    <td style="color:<?php echo $color; ?>;font-weight:600"><?php echo ($m['qty_change']>0?'+':'').$m['qty_change']; ?></td>
+    <td style="color:<?php echo $color; ?>;font-weight:600"><?php echo ($m['change_qty']>0?'+':'').$m['change_qty']; ?></td>
     <td><?php echo $m['qty_after'] ?? '—'; ?></td>
     <td><?php echo htmlspecialchars($m['reason']); ?></td>
     <td><small><?php echo htmlspecialchars($m['admin_user']); ?></small></td>
@@ -167,7 +166,7 @@ $products = mysqli_query($con,"SELECT id,productName,stock_qty FROM products ORD
     <ul>
     <?php for ($i=1;$i<=$pages;$i++): ?>
         <li class="<?php echo $i==$page?'active':''; ?>">
-            <a href="?pid=<?php echo $filter_pid; ?>&page=<?php echo $i; ?>"><?php echo $i; ?></a>
+            <a href="?pid=<?php echo $filter_pid; ?>&tipo=<?php echo urlencode($filter_type); ?>&usuario=<?php echo urlencode($filter_user); ?>&desde=<?php echo urlencode($filter_from); ?>&hasta=<?php echo urlencode($filter_to); ?>&page=<?php echo $i; ?>"><?php echo $i; ?></a>
         </li>
     <?php endfor; ?>
     </ul>

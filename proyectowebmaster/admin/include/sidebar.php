@@ -116,6 +116,7 @@ $pend_rv = $_rv_q ? intval(mysqli_fetch_assoc($_rv_q)['n']) : 0;
 							<?php endif; ?>
 						</a></li>
 						<li><a href="statistics.php"><i class="menu-icon icon-bar-chart"></i>Estadísticas </a></li>
+						<li><a href="reports-center.php"><i class="menu-icon icon-bell"></i>Reportes y Alertas</a></li>
 						<li><a href="conversion-funnel.php"><i class="menu-icon icon-filter"></i>Funnel de conversion</a></li>
 							<li><a href="coupons.php"><i class="menu-icon icon-tag"></i>Cupones y descuentos </a></li>
 							<li><a href="flash-sales.php"><i class="menu-icon icon-bolt"></i>Flash Sales </a></li>
@@ -131,9 +132,9 @@ $pend_rv = $_rv_q ? intval(mysqli_fetch_assoc($_rv_q)['n']) : 0;
 							<li><a href="admin-users.php"><i class="menu-icon icon-lock"></i>Administradores </a></li>
 							<li><a href="faq.php"><i class="menu-icon icon-question-sign"></i>FAQ del sitio</a></li>
 						<li><a href="settings.php"><i class="menu-icon icon-cog"></i>Configuración del sitio </a></li>
-							<li><a href="admin-log.php"><i class="menu-icon icon-list"></i>Log de actividad</a></li>
+							<li><a href="admin-log.php"><i class="menu-icon icon-list"></i>Log actividad admin</a></li>
 							<li><a href="discount-rules.php"><i class="menu-icon icon-percent"></i>Descuentos categoría</a></li>
-							<li><a href="stock-history.php"><i class="menu-icon icon-list-alt"></i>Historial de stock</a></li>
+							<li><a href="stock-history.php"><i class="menu-icon icon-list-alt"></i>Historial movimientos stock</a></li>
 							<li><a href="product-questions.php"><i class="menu-icon icon-question-sign"></i>Preguntas de productos
 							<?php
 							$_pq_q = @mysqli_query($con,"SELECT COUNT(*) n FROM product_questions WHERE answer IS NULL");
