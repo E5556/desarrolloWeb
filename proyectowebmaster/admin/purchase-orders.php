@@ -75,10 +75,12 @@ if(isset($_GET['st_change'])){
             $admin_user=mysqli_real_escape_string($con,$_SESSION['alogin']??'');
             while($pi=mysqli_fetch_assoc($pitems)){
                 $ppid=intval($pi['product_id']); $pqty=intval($pi['quantity_ordered']);
+                $prod_av=mysqli_fetch_assoc(mysqli_query($con,"SELECT productAvailability FROM products WHERE id=$ppid LIMIT 1"));
+                if(($prod_av['productAvailability']??'')==='On Order') continue; // Bajo Pedido: no modificar stock
                 mysqli_query($con,"UPDATE products SET stock_qty=COALESCE(stock_qty,0)+$pqty, productAvailability='In Stock' WHERE id=$ppid");
                 $qa=mysqli_fetch_assoc(mysqli_query($con,"SELECT stock_qty FROM products WHERE id=$ppid LIMIT 1"));
                 $qa_val=intval($qa['stock_qty']??0);
-                mysqli_query($con,"INSERT INTO stock_movements(product_id,type,qty_change,qty_after,reason,admin_user) VALUES($ppid,'in',$pqty,$qa_val,'OC recibida — po_id=$poid','$admin_user')");
+                mysqli_query($con,"INSERT INTO stock_movements(product_id,type,change_qty,qty_after,reason,admin_user) VALUES($ppid,'in',$pqty,$qa_val,'OC recibida — po_id=$poid','$admin_user')");
             }
         }
     }

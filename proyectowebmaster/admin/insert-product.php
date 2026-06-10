@@ -225,7 +225,7 @@ if(isset($_POST['submit'])) {
         <div class="control-group">
             <label class="control-label">Disponibilidad</label>
             <div class="controls">
-                <select name="productAvailability" class="span8" required>
+                <select name="productAvailability" id="availSelect" class="span8" required onchange="toggleStockField(this.value)">
                     <option value="">Seleccionar</option>
                     <option value="In Stock">En Stock</option>
                     <option value="Out of Stock">Sin Stock</option>
@@ -234,13 +234,30 @@ if(isset($_POST['submit'])) {
             </div>
         </div>
 
-        <div class="control-group">
+        <div class="control-group" id="stock-field-group">
             <label class="control-label">Stock inicial (unidades)</label>
             <div class="controls">
-                <input type="number" min="0" name="stock_qty" placeholder="Dejar vacío = sin control de stock" class="span8">
-                <span class="help-block">Si ingresas un número, el stock se descontará automáticamente con cada compra.</span>
+                <input type="number" min="0" name="stock_qty" id="stock_qty_input" placeholder="Dejar vacío = sin control de stock" class="span8">
+                <span class="help-block" id="stock-help">Si ingresas un número, el stock se descontará automáticamente con cada compra.</span>
             </div>
         </div>
+        <script>
+        function toggleStockField(val) {
+            var grp  = document.getElementById('stock-field-group');
+            var inp  = document.getElementById('stock_qty_input');
+            var help = document.getElementById('stock-help');
+            if (val === 'On Order') {
+                grp.style.opacity = '.45';
+                grp.style.pointerEvents = 'none';
+                inp.value = '';
+                help.innerHTML = '<span style="color:#856404"><i class="icon-warning-sign"></i> Bajo Pedido no maneja stock físico.</span>';
+            } else {
+                grp.style.opacity = '1';
+                grp.style.pointerEvents = 'auto';
+                help.innerHTML = 'Si ingresas un número, el stock se descontará automáticamente con cada compra.';
+            }
+        }
+        </script>
 
         <!-- ── IMÁGENES DINÁMICAS ── -->
         <div class="control-group">

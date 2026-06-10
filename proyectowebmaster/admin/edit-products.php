@@ -374,15 +374,25 @@ foreach($_av_opts as $_val=>$_label): ?>
 <div class="control-group">
 <label class="control-label">Stock (unidades)</label>
 <div class="controls">
-<?php $_stk_val = isset($row['stock_qty']) && $row['stock_qty'] !== null ? intval($row['stock_qty']) : null; ?>
+<?php
+$_stk_val  = isset($row['stock_qty']) && $row['stock_qty'] !== null ? intval($row['stock_qty']) : null;
+$_is_on_order = ($row['productAvailability'] ?? '') === 'On Order';
+?>
 <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-    <span style="font-size:1.4em;font-weight:700;color:<?php echo ($_stk_val === null ? '#aaa' : ($_stk_val > 5 ? '#27ae60' : ($_stk_val > 0 ? '#e67e22' : '#e8233a'))); ?>">
-        <?php echo $_stk_val !== null ? $_stk_val . ' uds.' : '— sin control'; ?>
-    </span>
-    <a href="inventory-adjust.php?load_pid=<?php echo $pid; ?>" class="btn btn-sm btn-default" style="padding:5px 12px;font-size:.82em">
-        <i class="icon-inbox"></i> Ajustar stock
-    </a>
-    <span style="font-size:.78em;color:#aaa">Se descuenta automáticamente con cada compra</span>
+    <?php if ($_is_on_order): ?>
+        <span style="background:#fff3cd;border:1px solid #ffc107;color:#856404;padding:5px 12px;border-radius:5px;font-size:.85em">
+            <i class="icon-warning-sign"></i> Bajo Pedido — sin control de stock
+        </span>
+        <span style="font-size:.78em;color:#aaa">Los productos Bajo Pedido no manejan inventario físico</span>
+    <?php else: ?>
+        <span style="font-size:1.4em;font-weight:700;color:<?php echo ($_stk_val === null ? '#aaa' : ($_stk_val > 5 ? '#27ae60' : ($_stk_val > 0 ? '#e67e22' : '#e8233a'))); ?>">
+            <?php echo $_stk_val !== null ? $_stk_val . ' uds.' : '— sin control'; ?>
+        </span>
+        <a href="inventory-adjust.php?load_pid=<?php echo $pid; ?>" class="btn btn-sm btn-default" style="padding:5px 12px;font-size:.82em">
+            <i class="icon-inbox"></i> Ajustar stock
+        </a>
+        <span style="font-size:.78em;color:#aaa">Se descuenta automáticamente con cada compra</span>
+    <?php endif; ?>
 </div>
 <input type="hidden" name="stock_qty" value="<?php echo $_stk_val !== null ? $_stk_val : ''; ?>">
 </div>

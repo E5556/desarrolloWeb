@@ -23,6 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['do_adjust'])) {
     $admin_user = mysqli_real_escape_string($con, $_SESSION['alogin'] ?? '');
     $count = 0;
 
+    $skipped_on_order = 0;
     for ($i = 0; $i < count($pids); $i++) {
         $pid_i  = intval($pids[$i]);
         $qty_i  = intval($qtys[$i] ?? 0);
@@ -30,9 +31,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['do_adjust'])) {
         $reason = mysqli_real_escape_string($con, substr($reasons[$i] ?? '', 0, 200));
         if ($pid_i <= 0 || $qty_i <= 0) continue;
 
-        // Obtener stock actual antes del cambio
-        $qa_before = mysqli_fetch_assoc(mysqli_query($con, "SELECT COALESCE(stock_qty,0) stock_qty FROM products WHERE id=$pid_i LIMIT 1"));
-        $stock_before = intval($qa_before['stock_qty'] ?? 0);
+        // Bloquear productos Bajo Pedido
+        $prod_info = mysqli_fetch_assoc(mysqli_query($con, "SELECT COALESCE(stock_qty,0) stock_qty, productAvailability FROM products WHERE id=$pid_i LIMIT 1"));
+        if (($prod_info['productAvailability'] ?? '') === 'On Order') { $skipped_on_order++; continue; }
+        $stock_before = intval($prod_info['stock_qty'] ?? 0);
 
         if ($type_i === 'adjustment') {
             // Ajuste manual: reemplaza el stock al valor exacto ingresado
@@ -43,7 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['do_adjust'])) {
             mysqli_query($con, "UPDATE products SET stock_qty = GREATEST(0, $stock_before + $delta) WHERE id=$pid_i");
         }
 
-        // Actualizar disponibilidad
+        // Actualizar disponibilidad (nunca tocar On Order)
         $qa = mysqli_fetch_assoc(mysqli_query($con, "SELECT stock_qty FROM products WHERE id=$pid_i LIMIT 1"));
         $qty_after = intval($qa['stock_qty'] ?? 0);
         if ($qty_after > 0) mysqli_query($con, "UPDATE products SET productAvailability='In Stock' WHERE id=$pid_i");
@@ -55,6 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['do_adjust'])) {
         $count++;
     }
     $msg  = $count > 0 ? "✅ $count movimiento(s) registrado(s) correctamente." : 'No se procesó ningún movimiento (verifica los datos).';
+    if ($skipped_on_order > 0) $msg .= " ⚠️ $skipped_on_order referencia(s) omitida(s) por ser Bajo Pedido (sin control de stock).";
     $mtyp = $count > 0 ? 'success' : 'warning';
 }
 
@@ -225,42 +228,56 @@ $('#prod-search').on('input', function() {
 });
 
 $(document).on('click', '.prod-result[data-id]', function() {
-    addItem($(this).data('id'), $(this).data('name'), $(this).data('stock'));
+    addItem($(this).data('id'), $(this).data('name'), $(this).data('stock'), $(this).data('avail'));
     $('#prod-search').val('');
     $('#prod-results').hide();
 });
 
-function addItem(pid, name, stock) {
+function addItem(pid, name, stock, avail) {
     itemCount++;
     var idx = itemCount;
     $('#no-items-msg').hide();
-    $('#btn-save').prop('disabled', false);
 
-    var row = '<div class="item-row" id="irow-'+idx+'">'
-        + '<button type="button" class="btn-del-row" onclick="removeItem('+idx+')">✕</button>'
-        + '<input type="hidden" name="product_id[]" value="'+pid+'">'
-        + '<div class="prod-name">'+escH(name)+'</div>'
-        + '<div class="prod-stock">Stock actual: <strong>'+stock+'</strong></div>'
-        + '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:10px">'
-        +   '<div>'
-        +     '<label style="font-size:.8em;color:#555">Tipo de movimiento</label>'
-        +     '<select name="mov_type[]" class="input-block-level" style="max-width:180px">'
-        +       '<option value="in">↑ Entrada (restock)</option>'
-        +       '<option value="out">↓ Salida (ajuste)</option>'
-        +       '<option value="adjustment">⟳ Ajuste manual</option>'
-        +     '</select>'
-        +   '</div>'
-        +   '<div>'
-        +     '<label style="font-size:.8em;color:#555" class="qty-label">Cantidad</label>'
-        +     '<input type="number" name="qty_change[]" value="1" min="0" class="qty-input" style="width:80px">'
-        +     '<div class="qty-hint" style="font-size:.75em;color:#888;margin-top:2px">Unidades a sumar</div>'
-        +   '</div>'
-        +   '<div style="flex:2;min-width:200px">'
-        +     '<label style="font-size:.8em;color:#555">Razón / Referencia</label>'
-        +     '<input type="text" name="reason[]" class="input-block-level" placeholder="ej: Factura #123, Proveedor Alpha..." style="max-width:300px">'
-        +   '</div>'
-        + '</div>'
-        + '</div>';
+    var isOnOrder = (avail === 'On Order');
+    var row;
+
+    if (isOnOrder) {
+        // Producto Bajo Pedido: mostrar aviso, sin controles de ajuste
+        row = '<div class="item-row" id="irow-'+idx+'" style="border-color:#f0ad4e;background:#fffbf0">'
+            + '<button type="button" class="btn-del-row" onclick="removeItem('+idx+')">✕</button>'
+            + '<div class="prod-name">'+escH(name)+'</div>'
+            + '<div style="margin-top:8px;padding:8px 12px;background:#fff3cd;border:1px solid #ffc107;border-radius:5px;font-size:.85em;color:#856404">'
+            + '<i class="icon-warning-sign"></i> <strong>Bajo Pedido</strong> — Esta referencia no maneja stock físico. Los ajustes de inventario no aplican.'
+            + '</div>'
+            + '</div>';
+    } else {
+        $('#btn-save').prop('disabled', false);
+        row = '<div class="item-row" id="irow-'+idx+'">'
+            + '<button type="button" class="btn-del-row" onclick="removeItem('+idx+')">✕</button>'
+            + '<input type="hidden" name="product_id[]" value="'+pid+'">'
+            + '<div class="prod-name">'+escH(name)+'</div>'
+            + '<div class="prod-stock">Stock actual: <strong>'+stock+'</strong></div>'
+            + '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:10px">'
+            +   '<div>'
+            +     '<label style="font-size:.8em;color:#555">Tipo de movimiento</label>'
+            +     '<select name="mov_type[]" class="input-block-level" style="max-width:180px">'
+            +       '<option value="in">↑ Entrada (restock)</option>'
+            +       '<option value="out">↓ Salida (ajuste)</option>'
+            +       '<option value="adjustment">⟳ Ajuste manual</option>'
+            +     '</select>'
+            +   '</div>'
+            +   '<div>'
+            +     '<label style="font-size:.8em;color:#555" class="qty-label">Cantidad</label>'
+            +     '<input type="number" name="qty_change[]" value="1" min="0" class="qty-input" style="width:80px">'
+            +     '<div class="qty-hint" style="font-size:.75em;color:#888;margin-top:2px">Unidades a sumar</div>'
+            +   '</div>'
+            +   '<div style="flex:2;min-width:200px">'
+            +     '<label style="font-size:.8em;color:#555">Razón / Referencia</label>'
+            +     '<input type="text" name="reason[]" class="input-block-level" placeholder="ej: Factura #123, Proveedor Alpha..." style="max-width:300px">'
+            +   '</div>'
+            + '</div>'
+            + '</div>';
+    }
     $('#items-container').append(row);
 }
 
@@ -299,7 +316,8 @@ $(function(){
     addItem(
         <?php echo intval($preload_product['id']); ?>,
         <?php echo json_encode($preload_product['productName']); ?>,
-        <?php echo intval($preload_product['stock_qty'] ?? 0); ?>
+        <?php echo intval($preload_product['stock_qty'] ?? 0); ?>,
+        <?php echo json_encode($preload_product['productAvailability'] ?? ''); ?>
     );
 });
 <?php endif; ?>
