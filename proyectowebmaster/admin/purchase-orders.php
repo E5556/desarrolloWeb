@@ -21,12 +21,18 @@ mysqli_query($con,"CREATE TABLE IF NOT EXISTS purchase_order_items (
     id INT AUTO_INCREMENT PRIMARY KEY,
     po_id INT NOT NULL,
     product_id INT NOT NULL,
+    variant_id INT NULL DEFAULT NULL,
     quantity_ordered INT NOT NULL DEFAULT 1,
     quantity_received INT NOT NULL DEFAULT 0,
     unit_cost DECIMAL(10,2) DEFAULT 0,
     order_ref VARCHAR(40) DEFAULT '',
     INDEX(po_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+// Guard para tablas existentes
+mysqli_report(MYSQLI_REPORT_OFF);
+$_cq=mysqli_query($con,"SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='purchase_order_items' AND COLUMN_NAME='variant_id'");
+if(!$_cq||!mysqli_fetch_row($_cq)) mysqli_query($con,"ALTER TABLE purchase_order_items ADD COLUMN variant_id INT NULL DEFAULT NULL");
+mysqli_report(MYSQLI_REPORT_ERROR|MYSQLI_REPORT_STRICT);
 
 $msg=''; $mtyp='';
 
@@ -73,14 +79,28 @@ if(isset($_GET['st_change'])){
         if($new_st==='Recibida completa'){
             $pitems=mysqli_query($con,"SELECT * FROM purchase_order_items WHERE po_id=$poid");
             $admin_user=mysqli_real_escape_string($con,$_SESSION['alogin']??'');
+            $aid=intval($_SESSION['aid']??0);
             while($pi=mysqli_fetch_assoc($pitems)){
                 $ppid=intval($pi['product_id']); $pqty=intval($pi['quantity_ordered']);
+                $pvid=intval($pi['variant_id']??0);
                 $prod_av=mysqli_fetch_assoc(mysqli_query($con,"SELECT productAvailability FROM products WHERE id=$ppid LIMIT 1"));
-                if(($prod_av['productAvailability']??'')==='On Order') continue; // Bajo Pedido: no modificar stock
-                mysqli_query($con,"UPDATE products SET stock_qty=COALESCE(stock_qty,0)+$pqty, productAvailability='In Stock' WHERE id=$ppid");
-                $qa=mysqli_fetch_assoc(mysqli_query($con,"SELECT stock_qty FROM products WHERE id=$ppid LIMIT 1"));
-                $qa_val=intval($qa['stock_qty']??0);
-                mysqli_query($con,"INSERT INTO stock_movements(product_id,type,change_qty,qty_after,reason,admin_user) VALUES($ppid,'in',$pqty,$qa_val,'OC recibida — po_id=$poid','$admin_user')");
+                if(($prod_av['productAvailability']??'')==='On Order') continue;
+
+                if ($pvid > 0) {
+                    // Sumar stock a la variante específica
+                    mysqli_query($con,"UPDATE product_variants SET stock_qty=COALESCE(stock_qty,0)+$pqty WHERE id=$pvid AND product_id=$ppid");
+                    $vq_after=mysqli_fetch_assoc(mysqli_query($con,"SELECT stock_qty sq FROM product_variants WHERE id=$pvid"));
+                    $vq_val=intval($vq_after['sq']??0);
+                    // Recalcular total padre
+                    $stot=intval(mysqli_fetch_assoc(mysqli_query($con,"SELECT COALESCE(SUM(stock_qty),0) t FROM product_variants WHERE product_id=$ppid AND is_active=1"))['t']);
+                    mysqli_query($con,"UPDATE products SET stock_qty=$stot, productAvailability='In Stock' WHERE id=$ppid");
+                    mysqli_query($con,"INSERT INTO stock_movements(product_id,variant_id,type,change_qty,qty_after,reason,admin_user,admin_id) VALUES($ppid,$pvid,'in',$pqty,$vq_val,'OC recibida — po_id=$poid','$admin_user',$aid)");
+                } else {
+                    mysqli_query($con,"UPDATE products SET stock_qty=COALESCE(stock_qty,0)+$pqty, productAvailability='In Stock' WHERE id=$ppid");
+                    $qa=mysqli_fetch_assoc(mysqli_query($con,"SELECT stock_qty FROM products WHERE id=$ppid LIMIT 1"));
+                    $qa_val=intval($qa['stock_qty']??0);
+                    mysqli_query($con,"INSERT INTO stock_movements(product_id,type,change_qty,qty_after,reason,admin_user,admin_id) VALUES($ppid,'in',$pqty,$qa_val,'OC recibida — po_id=$poid','$admin_user',$aid)");
+                }
             }
         }
     }

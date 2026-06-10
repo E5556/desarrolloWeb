@@ -103,6 +103,67 @@ if(isset($_POST['submit'])) {
             mysqli_query($con, "INSERT INTO product_images(productId,imageName,sortOrder) VALUES($new_id,'$sname',$i)");
         }
 
+        // ── G3: Guardar variantes si aplica ──────────────────────────────
+        if (!empty($_POST['has_variants'])) {
+            // Reutilizar misma lógica que edit-products, pero con $pid = $new_id
+            $pid = $new_id;
+            // DDL guard (misma función inline)
+            mysqli_report(MYSQLI_REPORT_OFF);
+            $_need = ['sku'=>'VARCHAR(80) NULL DEFAULT NULL','barcode'=>'VARCHAR(80) NULL DEFAULT NULL','image'=>'VARCHAR(255) NULL DEFAULT NULL','is_active'=>'TINYINT(1) NOT NULL DEFAULT 1'];
+            foreach ($_need as $_cn => $_cdef) {
+                $_cq = mysqli_query($con,"SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='product_variants' AND COLUMN_NAME='$_cn'");
+                if (!$_cq || !mysqli_fetch_row($_cq)) mysqli_query($con,"ALTER TABLE product_variants ADD COLUMN $_cn $_cdef");
+            }
+            mysqli_query($con,"CREATE TABLE IF NOT EXISTS product_attributes (id INT AUTO_INCREMENT PRIMARY KEY, product_id INT NOT NULL, attr_name VARCHAR(80) NOT NULL, sort_order TINYINT NOT NULL DEFAULT 0, INDEX idx_pa_product(product_id), UNIQUE KEY uq_pa_pid_attr(product_id,attr_name)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            mysqli_query($con,"CREATE TABLE IF NOT EXISTS variant_attribute_values (id INT AUTO_INCREMENT PRIMARY KEY, variant_id INT NOT NULL, attr_name VARCHAR(80) NOT NULL, attr_value VARCHAR(120) NOT NULL, INDEX idx_vav_variant(variant_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
+
+            $attr_names = array_map('trim', $_POST['attr_name'] ?? []);
+            foreach ($attr_names as $_ao => $_an) {
+                if ($_an === '') continue;
+                $esa = mysqli_real_escape_string($con,$_an);
+                mysqli_query($con,"INSERT IGNORE INTO product_attributes(product_id,attr_name,sort_order) VALUES($pid,'$esa',$_ao)");
+            }
+            if (!is_dir("productimages/$pid")) mkdir("productimages/$pid",0755,true);
+            $v_ins = mysqli_prepare($con,"INSERT INTO product_variants(product_id,variant_name,variant_value,sku,stock_qty,price_extra,is_active) VALUES(?,?,?,?,?,?,1)");
+            foreach (($_POST['var_id'] ?? []) as $vi => $vid) {
+                $vsku  = trim(substr($_POST['var_sku'][$vi]  ?? '',0,80));
+                $vprice= floatval($_POST['var_price'][$vi] ?? 0);
+                $vstk  = intval($_POST['var_stock'][$vi] ?? 0);
+                $combo_keys=[]; $combo_vals=[];
+                foreach ($attr_names as $_an) {
+                    $fk='vattr_'.preg_replace('/[^a-z0-9]/i','_',strtolower($_an));
+                    $combo_keys[]=$_an; $combo_vals[]=trim(($_POST[$fk][$vi]??''));
+                }
+                $vname=implode('/',$combo_keys); $vval=implode('/',$combo_vals);
+                if (str_replace('/','',trim($vval))==='') continue;
+                mysqli_stmt_bind_param($v_ins,'isssiid',$pid,$vname,$vval,$vsku,$vstk,$vprice);
+                mysqli_stmt_execute($v_ins);
+                $saved_id = mysqli_insert_id($con);
+                // variant_attribute_values
+                foreach ($attr_names as $_an) {
+                    $fk='vattr_'.preg_replace('/[^a-z0-9]/i','_',strtolower($_an));
+                    $_av=trim(($_POST[$fk][$vi]??''));
+                    if ($_an===''||$_av==='') continue;
+                    $esa=mysqli_real_escape_string($con,$_an); $esv=mysqli_real_escape_string($con,$_av);
+                    mysqli_query($con,"INSERT INTO variant_attribute_values(variant_id,attr_name,attr_value) VALUES($saved_id,'$esa','$esv')");
+                }
+                // imagen de variante
+                if (isset($_FILES['var_image']['name'][$vi]) && $_FILES['var_image']['error'][$vi]===UPLOAD_ERR_OK) {
+                    $_vext=strtolower(pathinfo($_FILES['var_image']['name'][$vi],PATHINFO_EXTENSION));
+                    if (in_array($_vext,['jpg','jpeg','png','gif','webp'])) {
+                        $_vfname="variant_{$saved_id}.{$_vext}";
+                        if (move_uploaded_file($_FILES['var_image']['tmp_name'][$vi],"productimages/$pid/$_vfname"))
+                            mysqli_query($con,"UPDATE product_variants SET image='$_vfname' WHERE id=$saved_id");
+                    }
+                }
+            }
+            if (isset($v_ins)) mysqli_stmt_close($v_ins);
+            // Recalcular stock total
+            $stot=mysqli_fetch_assoc(mysqli_query($con,"SELECT COALESCE(SUM(stock_qty),0) t FROM product_variants WHERE product_id=$pid AND is_active=1"));
+            mysqli_query($con,"UPDATE products SET stock_qty=".intval($stot['t'])." WHERE id=$pid");
+        }
+
         $_SESSION['msg']      = "Producto insertado correctamente.";
         $_SESSION['msg_type'] = 'success';
     }
@@ -256,6 +317,89 @@ if(isset($_POST['submit'])) {
                 grp.style.pointerEvents = 'auto';
                 help.innerHTML = 'Si ingresas un número, el stock se descontará automáticamente con cada compra.';
             }
+        }
+        </script>
+
+        <!-- ── G3: VARIANTES / SKUs ── -->
+        <div class="control-group">
+        <label class="control-label">Variantes / SKUs</label>
+        <div class="controls">
+        <label style="font-weight:normal;margin-bottom:10px;display:flex;align-items:center;gap:8px;cursor:pointer">
+            <input type="checkbox" name="has_variants" id="ins_has_variants" value="1" onchange="insToggleG3(this.checked)">
+            <strong>Este producto tiene variantes</strong>
+            <span style="font-size:.78em;color:#888">(tallas, colores, materiales…)</span>
+        </label>
+        <div id="ins-g3-section" style="display:none">
+            <div class="g3-box" style="margin-bottom:12px">
+                <div style="font-weight:700;font-size:.85em;color:#337ab7;margin-bottom:8px"><i class="icon-tags"></i> Paso 1 — Define los atributos</div>
+                <div id="ins-attr-rows">
+                    <div class="g3-attr-row" id="ins-atrow-0">
+                        <input type="text" name="attr_name[]" placeholder="Atributo (ej: Talla)" style="max-width:160px">
+                        <span style="color:#aaa;font-size:.8em">Valores:</span>
+                        <input type="text" id="ins-attr-vals-0" placeholder="ej: S, M, L, XL" style="max-width:260px">
+                        <button type="button" class="btn btn-mini btn-danger" onclick="insRemoveAttrRow(0)">✕</button>
+                    </div>
+                </div>
+                <div style="margin-top:8px;display:flex;gap:8px">
+                    <button type="button" class="btn btn-mini btn-default" onclick="insAddAttrRow()"><i class="icon-plus"></i> Agregar atributo</button>
+                    <button type="button" class="btn btn-mini btn-info" onclick="insGenerateMatrix()"><i class="icon-magic"></i> Generar matriz de SKUs</button>
+                </div>
+            </div>
+            <div class="g3-box">
+                <div style="font-weight:700;font-size:.85em;color:#337ab7;margin-bottom:8px"><i class="icon-list"></i> Paso 2 — Configura cada SKU</div>
+                <div style="overflow-x:auto">
+                <table class="sku-table" id="ins-sku-table">
+                    <thead id="ins-sku-thead"><tr><th>SKU</th><th>Precio</th><th>Stock</th><th>Imagen</th><th></th></tr></thead>
+                    <tbody id="ins-sku-tbody"></tbody>
+                </table>
+                </div>
+            </div>
+        </div>
+        </div>
+        </div>
+        <script>
+        var _insG3AttrCount = 1;
+        function insToggleG3(on){ document.getElementById('ins-g3-section').style.display=on?'':'none'; }
+        function insAddAttrRow(){
+            var idx=_insG3AttrCount++;
+            document.getElementById('ins-attr-rows').insertAdjacentHTML('beforeend',
+                '<div class="g3-attr-row" id="ins-atrow-'+idx+'">'
+                +'<input type="text" name="attr_name[]" placeholder="Atributo" style="max-width:160px">'
+                +'<span style="color:#aaa;font-size:.8em">Valores:</span>'
+                +'<input type="text" id="ins-attr-vals-'+idx+'" placeholder="ej: Rojo, Azul" style="max-width:260px">'
+                +'<button type="button" class="btn btn-mini btn-danger" onclick="insRemoveAttrRow('+idx+')">✕</button>'
+                +'</div>');
+        }
+        function insRemoveAttrRow(idx){ var el=document.getElementById('ins-atrow-'+idx); if(el) el.remove(); }
+        function insGenerateMatrix(){
+            var attrs=[];
+            document.querySelectorAll('#ins-attr-rows .g3-attr-row').forEach(function(row,i){
+                var nm=row.querySelector('input[name="attr_name[]"]').value.trim();
+                var vi=row.querySelector('input[id^="ins-attr-vals-"]');
+                var vs=vi?vi.value.split(',').map(function(v){return v.trim();}).filter(Boolean):[];
+                if(nm&&vs.length) attrs.push({name:nm,vals:vs});
+            });
+            if(!attrs.length){alert('Define al menos un atributo con valores.');return;}
+            var combos=[[]];
+            attrs.forEach(function(a){var next=[];combos.forEach(function(c){a.vals.forEach(function(v){next.push(c.concat([{n:a.name,v:v}]));});});combos=next;});
+            var th='<tr><th>SKU</th>';
+            attrs.forEach(function(a){th+='<th>'+escH(a.name)+'</th>';});
+            th+='<th>Precio</th><th>Stock</th><th>Imagen</th><th></th></tr>';
+            document.getElementById('ins-sku-thead').innerHTML=th;
+            var rows='';
+            combos.forEach(function(combo,ci){
+                var autoSku='NUEVO-'+combo.map(function(c){return c.v.toUpperCase().replace(/\s+/g,'');}).join('-');
+                rows+='<tr class="sku-row"><input type="hidden" name="var_id[]" value="">'
+                    +'<td><input type="text" name="var_sku[]" value="'+escH(autoSku)+'" placeholder="AUTO"></td>';
+                combo.forEach(function(c){var fk='vattr_'+c.n.toLowerCase().replace(/[^a-z0-9]/g,'_');
+                    rows+='<td><input type="text" name="'+fk+'[]" value="'+escH(c.v)+'"></td>';});
+                rows+='<td><input type="number" name="var_price[]" step="0.01" value="0"></td>'
+                    +'<td><input type="number" name="var_stock[]" min="0" value="0"></td>'
+                    +'<td><input type="file" name="var_image[new_'+ci+']" accept="image/*" style="font-size:.72em"></td>'
+                    +'<td><button type="button" class="btn btn-mini btn-danger" onclick="this.closest(\'tr\').remove()">✕</button></td>'
+                    +'</tr>';
+            });
+            document.getElementById('ins-sku-tbody').innerHTML=rows;
         }
         </script>
 

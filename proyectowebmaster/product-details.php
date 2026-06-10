@@ -601,30 +601,74 @@ $num=mysqli_num_rows($rt);
 
 
 							<?php
-							// G3: Cargar variantes para este producto
-							$_pvars = [];
-							@mysqli_query($con, "CREATE TABLE IF NOT EXISTS product_variants (id INT AUTO_INCREMENT PRIMARY KEY, product_id INT NOT NULL, attr_name VARCHAR(60) NOT NULL, attr_value VARCHAR(60) NOT NULL, stock_qty INT DEFAULT NULL, price_modifier DECIMAL(12,2) DEFAULT 0, INDEX(product_id))");
-							$_pvq = @mysqli_query($con, "SELECT id, product_id, variant_name as attr_name, variant_value as attr_value, stock_qty, price_extra as price_modifier FROM product_variants WHERE product_id={$row['id']} ORDER BY variant_name, id");
-							while ($_pvq && $_pvr = mysqli_fetch_assoc($_pvq)) $_pvars[$_pvr['attr_name']][] = $_pvr;
-							if (!empty($_pvars)):
+							// G3: Cargar variantes con modelo SKU padre/hijo
+							$_attr_order = []; // [attr_name, ...]
+							$_pa_q = @mysqli_query($con,"SELECT attr_name FROM product_attributes WHERE product_id={$row['id']} ORDER BY sort_order");
+							if ($_pa_q) while ($_pa = mysqli_fetch_assoc($_pa_q)) $_attr_order[] = $_pa['attr_name'];
+
+							// Variantes activas con sus valores
+							$_variants_data = []; // [{id, sku, stock_qty, price_extra, attrs:{name:val}}]
+							$_vq2 = @mysqli_query($con,
+							    "SELECT pv.id, pv.sku, pv.stock_qty, pv.price_extra,
+							            GROUP_CONCAT(CONCAT(vav.attr_name,'=',vav.attr_value) ORDER BY vav.attr_name SEPARATOR '|') as attrs_raw
+							     FROM product_variants pv
+							     LEFT JOIN variant_attribute_values vav ON vav.variant_id=pv.id
+							     WHERE pv.product_id={$row['id']} AND pv.is_active=1
+							     GROUP BY pv.id ORDER BY pv.id");
+							if ($_vq2) while ($_vr2 = mysqli_fetch_assoc($_vq2)) {
+							    $_attrs = [];
+							    foreach (explode('|', $_vr2['attrs_raw'] ?? '') as $_ap) {
+							        if (!$_ap) continue;
+							        [$_ak, $_av] = explode('=', $_ap, 2);
+							        $_attrs[$_ak] = $_av;
+							    }
+							    $_vr2['attrs'] = $_attrs;
+							    $_variants_data[] = $_vr2;
+							}
+
+							// Agrupar por atributo para mostrar botones
+							$_pvars_new = []; // [attr_name => [val => {vid,stock,mod}]]
+							foreach ($_variants_data as $_vd) {
+							    foreach ($_vd['attrs'] as $_ak => $_av) {
+							        if (!isset($_pvars_new[$_ak][$_av])) {
+							            $_pvars_new[$_ak][$_av] = ['stock'=>0,'mod'=>$_vd['price_extra'],'vids'=>[]];
+							        }
+							        $_pvars_new[$_ak][$_av]['stock'] += intval($_vd['stock_qty']);
+							        $_pvars_new[$_ak][$_av]['vids'][] = $_vd['id'];
+							    }
+							}
+							// Usar orden definido en product_attributes, o el que salga
+							if (empty($_attr_order)) $_attr_order = array_keys($_pvars_new);
+
+							// Mapear combinación → variant_id para el JS
+							$_variant_map = []; // "val1|val2" => variant_id
+							foreach ($_variants_data as $_vd) {
+							    $key = implode('|', array_map(function($an) use ($_vd) {
+							        return $_vd['attrs'][$an] ?? '';
+							    }, $_attr_order));
+							    $_variant_map[$key] = $_vd['id'];
+							}
+							$_has_required_attrs = !empty($_attr_order) && !empty($_pvars_new);
 							?>
-							<div style="margin-bottom:16px">
-							<?php foreach($_pvars as $_attr_name => $_opts): ?>
+							<?php if (!empty($_pvars_new)): ?>
+							<div style="margin-bottom:16px" id="g3-variant-selector">
+							<?php foreach($_attr_order as $_attr_name):
+							    if (!isset($_pvars_new[$_attr_name])) continue; ?>
 							<div style="margin-bottom:10px">
 							    <label style="font-weight:600;margin-bottom:6px;display:block"><?php echo htmlspecialchars($_attr_name); ?>:</label>
 							    <div style="display:flex;flex-wrap:wrap;gap:6px" id="var-group-<?php echo md5($_attr_name); ?>">
-							    <?php foreach($_opts as $_oi => $_opt): ?>
+							    <?php foreach($_pvars_new[$_attr_name] as $_av => $_vinfo): ?>
 							    <button type="button"
 							        class="btn btn-default btn-sm var-btn"
 							        data-attr="<?php echo htmlspecialchars($_attr_name); ?>"
-							        data-val="<?php echo htmlspecialchars($_opt['attr_value']); ?>"
-							        data-mod="<?php echo floatval($_opt['price_modifier']); ?>"
-							        data-stock="<?php echo $_opt['stock_qty'] !== null ? intval($_opt['stock_qty']) : -1; ?>"
+							        data-val="<?php echo htmlspecialchars($_av); ?>"
+							        data-mod="<?php echo floatval($_vinfo['mod']); ?>"
+							        data-stock="<?php echo intval($_vinfo['stock']); ?>"
 							        onclick="selectVariant(this)"
-							        <?php echo ($_opt['stock_qty'] !== null && intval($_opt['stock_qty']) <= 0) ? 'disabled style="opacity:.5;cursor:not-allowed"' : ''; ?>>
-							        <?php echo htmlspecialchars($_opt['attr_value']); ?>
-							        <?php if ($_opt['price_modifier'] != 0): ?>
-							        <small style="font-size:10px;color:#888"><?php echo ($_opt['price_modifier']>0?'+':'').number_format($_opt['price_modifier'],0,'.',','); ?></small>
+							        <?php echo (intval($_vinfo['stock']) <= 0) ? 'disabled style="opacity:.5;cursor:not-allowed"' : ''; ?>>
+							        <?php echo htmlspecialchars($_av); ?>
+							        <?php if ($_vinfo['mod'] != 0): ?>
+							        <small style="font-size:10px;color:#888"><?php echo ($_vinfo['mod']>0?'+':'').number_format($_vinfo['mod'],0,'.',','); ?></small>
 							        <?php endif; ?>
 							    </button>
 							    <?php endforeach; ?>
@@ -632,25 +676,61 @@ $num=mysqli_num_rows($rt);
 							</div>
 							<?php endforeach; ?>
 							<div id="var-stock-msg" style="font-size:12px;color:#888;margin-top:4px"></div>
+							<?php if ($_has_required_attrs): ?>
+							<div id="var-select-warning" style="display:none;margin-top:6px;padding:6px 10px;background:#fff3cd;border:1px solid #ffc107;border-radius:4px;font-size:12px;color:#856404">
+							    <i class="fa fa-exclamation-triangle"></i> Selecciona todas las opciones antes de agregar al carrito.
+							</div>
+							<?php endif; ?>
 							</div>
 							<script>
 							var _basePrice = <?php echo floatval($_fs_pd ? $_fs_pd['sale_price'] : $row['productPrice']); ?>;
 							var _selectedVars = {};
+							var _variantMap   = <?php echo json_encode($_variant_map); ?>;
+							var _attrOrder    = <?php echo json_encode($_attr_order); ?>;
+							var _hasRequired  = <?php echo $_has_required_attrs ? 'true' : 'false'; ?>;
+							var _selectedVariantId = 0;
+
 							function selectVariant(btn){
 							    var attr  = btn.dataset.attr;
 							    var mod   = parseFloat(btn.dataset.mod||0);
 							    var stock = parseInt(btn.dataset.stock);
-							    // Toggle active en el grupo
 							    btn.closest('[id^="var-group"]').querySelectorAll('.var-btn').forEach(function(b){ b.classList.remove('btn-primary'); b.classList.add('btn-default'); });
 							    btn.classList.remove('btn-default'); btn.classList.add('btn-primary');
 							    _selectedVars[attr] = {val:btn.dataset.val, mod:mod};
+
 							    // Recalcular precio
 							    var total = _basePrice;
 							    Object.values(_selectedVars).forEach(function(v){ total += v.mod; });
 							    document.querySelectorAll('.main-price-display').forEach(function(el){ el.textContent = '$'+Math.round(total).toLocaleString('es-CO'); });
+
 							    // Mostrar stock
 							    if(stock >= 0) document.getElementById('var-stock-msg').textContent = stock > 0 ? 'Stock: '+stock+' uds.' : 'Sin stock para esta variante';
 							    else document.getElementById('var-stock-msg').textContent = '';
+
+							    // Resolver variant_id si todas las opciones están seleccionadas
+							    _selectedVariantId = 0;
+							    if (_hasRequired && Object.keys(_selectedVars).length === _attrOrder.length) {
+							        var key = _attrOrder.map(function(a){ return _selectedVars[a] ? _selectedVars[a].val : ''; }).join('|');
+							        _selectedVariantId = _variantMap[key] || 0;
+							    }
+
+							    // Controlar botón de agregar al carrito
+							    var addBtns = document.querySelectorAll('.btn-add-to-cart');
+							    if (_hasRequired) {
+							        var allSelected = Object.keys(_selectedVars).length === _attrOrder.length;
+							        addBtns.forEach(function(b){ b.disabled = !allSelected || _selectedVariantId === 0; });
+							        var warn = document.getElementById('var-select-warning');
+							        if (warn) warn.style.display = allSelected ? 'none' : '';
+							    }
+							    // Actualizar data-variant-id en botones
+							    addBtns.forEach(function(b){ b.dataset.variantId = _selectedVariantId; });
+							}
+
+							// Deshabilitar botón al inicio si hay variantes requeridas
+							if (_hasRequired) {
+							    document.addEventListener('DOMContentLoaded', function(){
+							        document.querySelectorAll('.btn-add-to-cart').forEach(function(b){ b.disabled = true; });
+							    });
 							}
 							</script>
 							<?php endif; ?>

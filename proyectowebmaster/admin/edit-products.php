@@ -117,20 +117,112 @@ if (!empty($_FILES['new_productimages']['name'])) {
     }
 }
 
-// ── G3: Guardar variantes ─────────────────────────────────────────────────
-if (!empty($_POST['var_attr_name'])) {
-    mysqli_query($con, "DELETE FROM product_variants WHERE product_id=$pid");
-    $vstmt = mysqli_prepare($con, "INSERT INTO product_variants (product_id,variant_name,variant_value,stock_qty,price_extra) VALUES(?,?,?,?,?)");
-    foreach ($_POST['var_attr_name'] as $vi => $vattr) {
-        $vattr  = trim($vattr);
-        $vval   = trim($_POST['var_attr_value'][$vi] ?? '');
-        $vstk   = (isset($_POST['var_stock'][$vi]) && $_POST['var_stock'][$vi] !== '') ? intval($_POST['var_stock'][$vi]) : null;
-        $vmod   = floatval($_POST['var_price_mod'][$vi] ?? 0);
-        if ($vattr === '' || $vval === '') continue;
-        mysqli_stmt_bind_param($vstmt,'issid',$pid,$vattr,$vval,$vstk,$vmod);
-        mysqli_stmt_execute($vstmt);
+// ── G3: Guardar variantes (modelo SKU padre/hijo) ────────────────────────
+// DDL: asegurar columnas y tablas nuevas
+mysqli_report(MYSQLI_REPORT_OFF);
+$_need = ['sku'=>'VARCHAR(80) NULL DEFAULT NULL','barcode'=>'VARCHAR(80) NULL DEFAULT NULL','image'=>'VARCHAR(255) NULL DEFAULT NULL','is_active'=>'TINYINT(1) NOT NULL DEFAULT 1'];
+foreach ($_need as $_cn => $_cdef) {
+    $_cq = mysqli_query($con,"SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='product_variants' AND COLUMN_NAME='$_cn'");
+    if (!$_cq || !mysqli_fetch_row($_cq)) mysqli_query($con,"ALTER TABLE product_variants ADD COLUMN $_cn $_cdef");
+}
+foreach (['stock_movements','order_items','purchase_order_items'] as $_t) {
+    $_cq = mysqli_query($con,"SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='$_t' AND COLUMN_NAME='variant_id'");
+    if (!$_cq || !mysqli_fetch_row($_cq)) mysqli_query($con,"ALTER TABLE $_t ADD COLUMN variant_id INT NULL DEFAULT NULL");
+}
+mysqli_query($con,"CREATE TABLE IF NOT EXISTS product_attributes (
+  id INT AUTO_INCREMENT PRIMARY KEY, product_id INT NOT NULL, attr_name VARCHAR(80) NOT NULL, sort_order TINYINT NOT NULL DEFAULT 0,
+  INDEX idx_pa_product(product_id), UNIQUE KEY uq_pa_pid_attr(product_id,attr_name)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+mysqli_query($con,"CREATE TABLE IF NOT EXISTS variant_attribute_values (
+  id INT AUTO_INCREMENT PRIMARY KEY, variant_id INT NOT NULL, attr_name VARCHAR(80) NOT NULL, attr_value VARCHAR(120) NOT NULL,
+  INDEX idx_vav_variant(variant_id), INDEX idx_vav_attr(attr_name)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
+
+if (!empty($_POST['has_variants'])) {
+    // Guardar atributos del producto
+    $attr_names = array_map('trim', $_POST['attr_name'] ?? []);
+    mysqli_query($con,"DELETE FROM product_attributes WHERE product_id=$pid");
+    foreach ($attr_names as $_ao => $_an) {
+        if ($_an === '') continue;
+        $esa = mysqli_real_escape_string($con, $_an);
+        mysqli_query($con,"INSERT INTO product_attributes(product_id,attr_name,sort_order) VALUES($pid,'$esa',$_ao)");
     }
-    mysqli_stmt_close($vstmt);
+
+    // IDs de variantes que llegaron en el POST (para marcar inactivas las que falten)
+    $posted_var_ids = array_map('intval', $_POST['var_id'] ?? []);
+    $existing_ids_q = mysqli_query($con,"SELECT id FROM product_variants WHERE product_id=$pid");
+    while ($_eid = mysqli_fetch_assoc($existing_ids_q)) {
+        if (!in_array(intval($_eid['id']), array_filter($posted_var_ids))) {
+            mysqli_query($con,"UPDATE product_variants SET is_active=0 WHERE id=".intval($_eid['id']));
+        }
+    }
+
+    // Preparar stmt de update e insert
+    $v_upd = mysqli_prepare($con,"UPDATE product_variants SET sku=?,price_extra=?,stock_qty=?,is_active=1 WHERE id=? AND product_id=?");
+    $v_ins = mysqli_prepare($con,"INSERT INTO product_variants(product_id,variant_name,variant_value,sku,stock_qty,price_extra,is_active) VALUES(?,?,?,?,?,?,1)");
+    $v_img_upd = "UPDATE product_variants SET image=? WHERE id=?";
+
+    $var_ids_saved = [];
+    foreach (($_POST['var_id'] ?? []) as $vi => $vid) {
+        $vid   = intval($vid);
+        $vsku  = trim(substr($_POST['var_sku'][$vi]  ?? '', 0, 80));
+        $vprice= floatval($_POST['var_price'][$vi] ?? 0);
+        $vstk  = (isset($_POST['var_stock'][$vi]) && $_POST['var_stock'][$vi] !== '') ? intval($_POST['var_stock'][$vi]) : 0;
+        // combinación de atributos para variant_name/value (compatibilidad)
+        $combo_keys = []; $combo_vals = [];
+        foreach ($attr_names as $_an) {
+            $fk = 'vattr_'.preg_replace('/[^a-z0-9]/i','_',strtolower($_an));
+            $combo_keys[] = $_an;
+            $combo_vals[] = trim(($_POST[$fk][$vi] ?? ''));
+        }
+        $vname = implode('/', $combo_keys);
+        $vval  = implode('/', $combo_vals);
+        if ($vval === '' || str_replace('/','',trim($vval)) === '') continue;
+
+        if ($vid > 0) {
+            mysqli_stmt_bind_param($v_upd,'sdiid',$vsku,$vprice,$vstk,$vid,$pid);
+            mysqli_stmt_execute($v_upd);
+            $saved_id = $vid;
+        } else {
+            mysqli_stmt_bind_param($v_ins,'isssiid',$pid,$vname,$vval,$vsku,$vstk,$vprice);
+            mysqli_stmt_execute($v_ins);
+            $saved_id = mysqli_insert_id($con);
+        }
+        $var_ids_saved[$vi] = $saved_id;
+
+        // Imagen de variante
+        if (isset($_FILES['var_image']['name'][$vi]) && $_FILES['var_image']['error'][$vi] === UPLOAD_ERR_OK) {
+            $_vext = strtolower(pathinfo($_FILES['var_image']['name'][$vi], PATHINFO_EXTENSION));
+            if (in_array($_vext,['jpg','jpeg','png','gif','webp'])) {
+                $_vfname = "variant_{$saved_id}.{$_vext}";
+                if (move_uploaded_file($_FILES['var_image']['tmp_name'][$vi], "productimages/$pid/$_vfname")) {
+                    $stmt_vi = mysqli_prepare($con, $v_img_upd);
+                    mysqli_stmt_bind_param($stmt_vi,'si',$_vfname,$saved_id);
+                    mysqli_stmt_execute($stmt_vi);
+                    mysqli_stmt_close($stmt_vi);
+                }
+            }
+        }
+
+        // variant_attribute_values
+        mysqli_query($con,"DELETE FROM variant_attribute_values WHERE variant_id=$saved_id");
+        foreach ($attr_names as $_an) {
+            $fk = 'vattr_'.preg_replace('/[^a-z0-9]/i','_',strtolower($_an));
+            $_av = trim(($_POST[$fk][$vi] ?? ''));
+            if ($_an === '' || $_av === '') continue;
+            $esa = mysqli_real_escape_string($con,$_an);
+            $esv = mysqli_real_escape_string($con,$_av);
+            mysqli_query($con,"INSERT INTO variant_attribute_values(variant_id,attr_name,attr_value) VALUES($saved_id,'$esa','$esv')");
+        }
+    }
+    if (isset($v_upd)) mysqli_stmt_close($v_upd);
+    if (isset($v_ins)) mysqli_stmt_close($v_ins);
+
+    // Recalcular stock total del producto padre
+    $stot = mysqli_fetch_assoc(mysqli_query($con,"SELECT COALESCE(SUM(stock_qty),0) t FROM product_variants WHERE product_id=$pid AND is_active=1"));
+    mysqli_query($con,"UPDATE products SET stock_qty=".intval($stot['t'])." WHERE id=$pid");
+
+} elseif (isset($_POST['has_variants'])) {
+    // checkbox presente pero desmarcado = sin variantes, no tocar nada
 }
 
 $_SESSION['msg'] = "Producto actualizado correctamente.";
@@ -418,89 +510,219 @@ $_cur_sup = isset($row['supplier_id']) ? intval($row['supplier_id']) : 0;
 
 
 <?php
-// ── G3: Cargar variantes existentes ──────────────────────────────────────
+// ── G3: Cargar variantes y atributos existentes ──────────────────────────
 $_variants = [];
-$_vq = mysqli_query($con, "SELECT * FROM product_variants WHERE product_id=$pid ORDER BY id");
+$_vq = mysqli_query($con, "SELECT * FROM product_variants WHERE product_id=$pid AND is_active=1 ORDER BY id");
 while ($_vr = mysqli_fetch_assoc($_vq)) $_variants[] = $_vr;
+
+$_attr_defs = []; // [attr_name => [val1, val2, ...]]
+$_pa_q = mysqli_query($con,"SELECT attr_name FROM product_attributes WHERE product_id=$pid ORDER BY sort_order");
+if ($_pa_q) while ($_pa = mysqli_fetch_assoc($_pa_q)) $_attr_defs[$_pa['attr_name']] = [];
+
+// Cargar valores de cada variante indexados por variant_id
+$_vav_map = []; // [variant_id][attr_name] = attr_value
+if (!empty($_variants)) {
+    $vids_str = implode(',', array_column($_variants,'id'));
+    $_vav_q = mysqli_query($con,"SELECT * FROM variant_attribute_values WHERE variant_id IN ($vids_str)");
+    if ($_vav_q) while ($_vav = mysqli_fetch_assoc($_vav_q)) $_vav_map[$_vav['variant_id']][$_vav['attr_name']] = $_vav['attr_value'];
+}
+$_has_variants = !empty($_variants) || !empty($_attr_defs);
+$_attr_names   = array_keys($_attr_defs);
 ?>
 
-<!-- ── VARIANTES (talla/color/etc.) ── -->
+<!-- ── G3: VARIANTES (SKU Padre/Hijo) ── -->
 <style>
-.var-card { background:#f8f9fa; border:1px solid #e0e0e0; border-radius:6px; padding:10px 12px; margin-bottom:8px; display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; position:relative; }
-.var-card .var-field { display:flex; flex-direction:column; gap:3px; }
-.var-card .var-field label { font-size:.75em; color:#777; font-weight:600; margin:0; }
-.var-card .var-field input { border:1px solid #ccc; border-radius:4px; padding:5px 8px; font-size:.85em; }
-.var-card .var-field input:focus { border-color:#337ab7; outline:none; }
-.var-card .var-del { position:absolute; top:8px; right:8px; background:#e8233a; color:#fff; border:none; border-radius:50%; width:22px; height:22px; cursor:pointer; font-size:13px; line-height:22px; text-align:center; padding:0; }
-.var-card .var-del:hover { background:#c0392b; }
-.var-sep { font-size:.75em; color:#aaa; border-top:1px dashed #ddd; margin:4px 0 8px; padding-top:8px; }
+.g3-box { background:#f8fbff; border:1px solid #c5d9ed; border-radius:8px; padding:16px; margin-bottom:14px; }
+.g3-attr-row { display:flex; gap:8px; align-items:center; margin-bottom:6px; }
+.g3-attr-row input { flex:1; padding:5px 8px; border:1px solid #ccc; border-radius:4px; font-size:.85em; }
+.sku-table { width:100%; border-collapse:collapse; font-size:.82em; }
+.sku-table th { background:#e8f0fe; padding:6px 8px; text-align:left; border:1px solid #d0d9e8; white-space:nowrap; }
+.sku-table td { padding:5px 6px; border:1px solid #e8e8e8; vertical-align:middle; }
+.sku-table tr:nth-child(even) td { background:#fafbff; }
+.sku-table input[type=text], .sku-table input[type=number] { width:100%; padding:4px 6px; border:1px solid #ccc; border-radius:3px; font-size:.82em; box-sizing:border-box; }
+.sku-table .td-img input[type=file] { font-size:.75em; }
+.sku-inactive { opacity:.5; }
 </style>
+
 <div class="control-group">
-<label class="control-label">Variantes <small style="color:#aaa">(talla / color / etc.)</small></label>
-<div class="controls" style="max-width:580px">
-<div id="variants-body">
-<?php if (empty($_variants)): ?>
-<div class="var-card">
-    <div class="var-field" style="flex:2;min-width:110px">
-        <label>Atributo</label>
-        <input type="text" name="var_attr_name[]" placeholder="ej: Talla">
+<label class="control-label">Variantes / SKUs</label>
+<div class="controls">
+
+<label style="font-weight:normal;margin-bottom:10px;display:flex;align-items:center;gap:8px;cursor:pointer">
+    <input type="checkbox" name="has_variants" id="has_variants_cb" value="1" <?php echo $_has_variants?'checked':''; ?> onchange="toggleG3(this.checked)">
+    <strong>Este producto tiene variantes</strong>
+    <span style="font-size:.78em;color:#888">(tallas, colores, materiales, etc.)</span>
+</label>
+
+<div id="g3-section" style="<?php echo $_has_variants?'':'display:none'; ?>">
+
+    <!-- Definición de atributos -->
+    <div class="g3-box" style="margin-bottom:12px">
+        <div style="font-weight:700;font-size:.85em;color:#337ab7;margin-bottom:8px"><i class="icon-tags"></i> Paso 1 — Define los atributos</div>
+        <div id="attr-rows">
+        <?php
+        $shown = !empty($_attr_names) ? $_attr_names : [''];
+        foreach ($shown as $_i => $_an): ?>
+        <div class="g3-attr-row" id="atrow-<?php echo $_i; ?>">
+            <input type="text" name="attr_name[]" placeholder="Atributo (ej: Talla)" value="<?php echo htmlspecialchars($_an); ?>" style="max-width:160px">
+            <span style="color:#aaa;font-size:.8em">Valores (separados por coma):</span>
+            <input type="text" id="attr-vals-<?php echo $_i; ?>" placeholder="ej: S, M, L, XL" style="max-width:260px"
+                   value="<?php
+                       // Collect unique values for this attr from existing variants
+                       $uvals = [];
+                       foreach ($_variants as $_vv) { if (isset($_vav_map[$_vv['id']][$_an])) $uvals[] = $_vav_map[$_vv['id']][$_an]; }
+                       echo htmlspecialchars(implode(', ', array_unique($uvals)));
+                   ?>">
+            <button type="button" class="btn btn-mini btn-danger" onclick="removeAttrRow(<?php echo $_i; ?>)" title="Eliminar atributo">✕</button>
+        </div>
+        <?php endforeach; ?>
+        </div>
+        <div style="margin-top:8px;display:flex;gap:8px">
+            <button type="button" class="btn btn-mini btn-default" onclick="addAttrRow()"><i class="icon-plus"></i> Agregar atributo</button>
+            <button type="button" class="btn btn-mini btn-info" onclick="generateMatrix()"><i class="icon-magic"></i> Generar matriz de SKUs</button>
+        </div>
     </div>
-    <div class="var-field" style="flex:2;min-width:90px">
-        <label>Valor</label>
-        <input type="text" name="var_attr_value[]" placeholder="ej: XL">
+
+    <!-- Tabla de SKUs -->
+    <div class="g3-box">
+        <div style="font-weight:700;font-size:.85em;color:#337ab7;margin-bottom:8px"><i class="icon-list"></i> Paso 2 — Configura cada SKU</div>
+        <div style="overflow-x:auto">
+        <table class="sku-table" id="sku-table">
+        <thead id="sku-thead">
+        <tr>
+            <th>SKU</th>
+            <?php foreach ($_attr_names as $_an): ?>
+            <th><?php echo htmlspecialchars($_an); ?></th>
+            <?php endforeach; ?>
+            <th>Precio</th>
+            <th>Stock</th>
+            <th>Imagen</th>
+            <th>Activo</th>
+            <th></th>
+        </tr>
+        </thead>
+        <tbody id="sku-tbody">
+        <?php foreach ($_variants as $_vi => $_v):
+            $_vattrs = $_vav_map[$_v['id']] ?? [];
+            $_vimg = !empty($_v['image']) ? "productimages/$pid/{$_v['image']}" : '';
+        ?>
+        <tr class="sku-row" data-vid="<?php echo $_v['id']; ?>">
+            <input type="hidden" name="var_id[]" value="<?php echo $_v['id']; ?>">
+            <td><input type="text" name="var_sku[]" value="<?php echo htmlspecialchars($_v['sku']??''); ?>" placeholder="AUTO"></td>
+            <?php foreach ($_attr_names as $_an): ?>
+            <td><input type="text" name="vattr_<?php echo preg_replace('/[^a-z0-9]/i','_',strtolower($_an)); ?>[]"
+                       value="<?php echo htmlspecialchars($_vattrs[$_an]??''); ?>"></td>
+            <?php endforeach; ?>
+            <td style="width:80px"><input type="number" name="var_price[]" step="0.01" value="<?php echo floatval($_v['price_extra']); ?>"></td>
+            <td style="width:70px"><input type="number" name="var_stock[]" min="0" value="<?php echo intval($_v['stock_qty']); ?>"></td>
+            <td class="td-img" style="width:120px">
+                <?php if ($_vimg): ?><img src="<?php echo htmlspecialchars($_vimg); ?>" style="height:32px;margin-bottom:3px;display:block;border-radius:3px"><?php endif; ?>
+                <input type="file" name="var_image[<?php echo $_vi; ?>]" accept="image/*" style="font-size:.72em">
+            </td>
+            <td style="text-align:center"><input type="checkbox" name="var_active[<?php echo $_vi; ?>]" value="1" checked></td>
+            <td><button type="button" class="btn btn-mini btn-danger" onclick="removeSkuRow(this)" title="Eliminar">✕</button></td>
+        </tr>
+        <?php endforeach; ?>
+        </tbody>
+        </table>
+        </div>
+        <div style="margin-top:8px;font-size:.75em;color:#aaa">
+            El campo "Precio" es el precio de venta de esta variante (0 = usa el precio base del producto). "Stock" es independiente por SKU.
+        </div>
     </div>
-    <div class="var-field" style="flex:1;min-width:70px">
-        <label>Stock</label>
-        <input type="number" name="var_stock[]" min="0" placeholder="—">
-    </div>
-    <div class="var-field" style="flex:1;min-width:80px">
-        <label>+/- Precio</label>
-        <input type="number" name="var_price_mod[]" step="0.01" placeholder="0">
-    </div>
-    <button type="button" class="var-del" onclick="removeVarRow(this)" title="Eliminar variante">✕</button>
+
+</div><!-- /g3-section -->
 </div>
-<?php else: foreach($_variants as $_v): ?>
-<div class="var-card">
-    <div class="var-field" style="flex:2;min-width:110px">
-        <label>Atributo</label>
-        <input type="text" name="var_attr_name[]" value="<?php echo htmlspecialchars($_v['variant_name']); ?>">
-    </div>
-    <div class="var-field" style="flex:2;min-width:90px">
-        <label>Valor</label>
-        <input type="text" name="var_attr_value[]" value="<?php echo htmlspecialchars($_v['variant_value']); ?>">
-    </div>
-    <div class="var-field" style="flex:1;min-width:70px">
-        <label>Stock</label>
-        <input type="number" name="var_stock[]" min="0" value="<?php echo $_v['stock_qty'] !== null ? intval($_v['stock_qty']) : ''; ?>">
-    </div>
-    <div class="var-field" style="flex:1;min-width:80px">
-        <label>+/- Precio</label>
-        <input type="number" name="var_price_mod[]" step="0.01" value="<?php echo floatval($_v['price_extra']); ?>">
-    </div>
-    <button type="button" class="var-del" onclick="removeVarRow(this)" title="Eliminar variante">✕</button>
 </div>
-<?php endforeach; endif; ?>
-</div>
-<div style="margin-top:8px;display:flex;align-items:center;gap:12px">
-    <button type="button" class="btn btn-mini btn-default" onclick="addVarRow()">
-        <i class="icon-plus"></i> Agregar variante
-    </button>
-    <span style="font-size:.78em;color:#aaa">Deja vacío si el producto no tiene variantes. El campo "+/- Precio" suma o resta del precio base.</span>
-</div>
-</div>
-</div>
+
 <script>
-function addVarRow(){
-    var card = '<div class="var-card">'
-        + '<div class="var-field" style="flex:2;min-width:110px"><label>Atributo</label><input type="text" name="var_attr_name[]" placeholder="ej: Talla"></div>'
-        + '<div class="var-field" style="flex:2;min-width:90px"><label>Valor</label><input type="text" name="var_attr_value[]" placeholder="ej: XL"></div>'
-        + '<div class="var-field" style="flex:1;min-width:70px"><label>Stock</label><input type="number" name="var_stock[]" min="0" placeholder="—"></div>'
-        + '<div class="var-field" style="flex:1;min-width:80px"><label>+/- Precio</label><input type="number" name="var_price_mod[]" step="0.01" placeholder="0"></div>'
-        + '<button type="button" class="var-del" onclick="removeVarRow(this)" title="Eliminar variante">✕</button>'
-        + '</div>';
-    document.getElementById('variants-body').insertAdjacentHTML('beforeend', card);
+var _g3AttrCount = <?php echo max(1, count($shown ?? [''])); ?>;
+
+function toggleG3(on) {
+    document.getElementById('g3-section').style.display = on ? '' : 'none';
 }
-function removeVarRow(btn){ btn.closest('.var-card').remove(); }
+
+function addAttrRow() {
+    var idx = _g3AttrCount++;
+    var html = '<div class="g3-attr-row" id="atrow-'+idx+'">'
+        + '<input type="text" name="attr_name[]" placeholder="Atributo (ej: Color)" style="max-width:160px">'
+        + '<span style="color:#aaa;font-size:.8em">Valores (separados por coma):</span>'
+        + '<input type="text" id="attr-vals-'+idx+'" placeholder="ej: Rojo, Azul, Negro" style="max-width:260px">'
+        + '<button type="button" class="btn btn-mini btn-danger" onclick="removeAttrRow('+idx+')" title="Eliminar">✕</button>'
+        + '</div>';
+    document.getElementById('attr-rows').insertAdjacentHTML('beforeend', html);
+}
+
+function removeAttrRow(idx) {
+    var el = document.getElementById('atrow-'+idx);
+    if (el) el.remove();
+}
+
+function generateMatrix() {
+    // Leer atributos y valores
+    var attrs = [];
+    document.querySelectorAll('#attr-rows .g3-attr-row').forEach(function(row, i) {
+        var name = row.querySelector('input[name="attr_name[]"]').value.trim();
+        var valsEl = row.querySelector('input[id^="attr-vals-"]');
+        var vals = valsEl ? valsEl.value.split(',').map(function(v){ return v.trim(); }).filter(Boolean) : [];
+        if (name && vals.length) attrs.push({name:name, vals:vals});
+    });
+    if (!attrs.length) { alert('Define al menos un atributo con valores.'); return; }
+
+    // Calcular producto cartesiano
+    var combos = [[]];
+    attrs.forEach(function(a) {
+        var next = [];
+        combos.forEach(function(c) {
+            a.vals.forEach(function(v) { next.push(c.concat([{n:a.name, v:v}])); });
+        });
+        combos = next;
+    });
+
+    // Actualizar thead
+    var pid = <?php echo $pid; ?>;
+    var thead = '<tr><th>SKU</th>';
+    attrs.forEach(function(a){ thead += '<th>'+escH(a.name)+'</th>'; });
+    thead += '<th>Precio</th><th>Stock</th><th>Imagen</th><th>Activo</th><th></th></tr>';
+    document.getElementById('sku-thead').innerHTML = thead;
+
+    // Generar filas (preservar existentes por SKU/combo si coinciden)
+    var tbody = document.getElementById('sku-tbody');
+    // Recopilar SKUs ya existentes en la tabla para no duplicar
+    var existingCombos = {};
+    tbody.querySelectorAll('.sku-row').forEach(function(tr){
+        var key = [];
+        tr.querySelectorAll('td input[name^="vattr_"]').forEach(function(inp){ key.push(inp.value.trim()); });
+        existingCombos[key.join('|')] = tr;
+    });
+
+    var newRows = '';
+    combos.forEach(function(combo, ci) {
+        var key = combo.map(function(c){ return c.v; }).join('|');
+        if (existingCombos[key]) return; // ya existe
+        var autoSku = 'PROD<?php echo $pid; ?>-' + combo.map(function(c){ return c.v.toUpperCase().replace(/\s+/g,''); }).join('-');
+        var row = '<tr class="sku-row">'
+            + '<input type="hidden" name="var_id[]" value="">'
+            + '<td><input type="text" name="var_sku[]" value="'+escH(autoSku)+'" placeholder="AUTO"></td>';
+        combo.forEach(function(c){
+            var fk = 'vattr_'+c.n.toLowerCase().replace(/[^a-z0-9]/g,'_');
+            row += '<td><input type="text" name="'+fk+'[]" value="'+escH(c.v)+'"></td>';
+        });
+        row += '<td><input type="number" name="var_price[]" step="0.01" value="0"></td>'
+             + '<td><input type="number" name="var_stock[]" min="0" value="0"></td>'
+             + '<td class="td-img"><input type="file" name="var_image[new_'+ci+']" accept="image/*" style="font-size:.72em"></td>'
+             + '<td style="text-align:center"><input type="checkbox" name="var_active[new_'+ci+']" value="1" checked></td>'
+             + '<td><button type="button" class="btn btn-mini btn-danger" onclick="removeSkuRow(this)">✕</button></td>'
+             + '</tr>';
+        newRows += row;
+    });
+    tbody.insertAdjacentHTML('beforeend', newRows);
+    if (newRows) { alert(combos.length + ' combinaciones generadas. Revisa la tabla y ajusta stock/precio.'); }
+    else { alert('Todas las combinaciones ya existen en la tabla.'); }
+}
+
+function removeSkuRow(btn) { btn.closest('tr').remove(); }
+function escH(s){ var d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
 </script>
 
 <?php

@@ -10,14 +10,18 @@ if(isset($_POST['cartupdate'])){
 				unset($_SESSION['cart'][intval($key)]);
 			}
 		}
-		// Actualizar cantidades
+		// Actualizar cantidades — buscar clave exacta en sesión (simple o compuesta)
 		if(!empty($_SESSION['cart']) && isset($_POST['quantity'])){
 			foreach($_POST['quantity'] as $key => $val){
-				$key = intval($key);
 				$val = intval($val);
-				if(isset($_SESSION['cart'][$key])){
-					if($val <= 0){ unset($_SESSION['cart'][$key]); }
-					else{ $_SESSION['cart'][$key]['quantity'] = $val; }
+				// Buscar clave que empiece con este pid
+				$pid_k = intval($key);
+				foreach (array_keys($_SESSION['cart']) as $_ck) {
+					$_ckpid = strpos($_ck,'_')!==false ? intval(explode('_',$_ck,2)[0]) : intval($_ck);
+					if ($_ckpid === $pid_k) {
+						if ($val <= 0) unset($_SESSION['cart'][$_ck]);
+						else $_SESSION['cart'][$_ck]['quantity'] = $val;
+					}
 				}
 			}
 		}
@@ -280,8 +284,14 @@ if(!empty($_SESSION['cart'])){
 			<tbody>
  <?php
  $pdtid=array();
+ // Construir índice pid→item soportando claves simples y compuestas pid_vid
+ $_cart_pid_map = [];
+ foreach ($_SESSION['cart'] as $_ckey => $_citem) {
+     $_cpid = strpos($_ckey,'_')!==false ? intval(explode('_',$_ckey,2)[0]) : intval($_ckey);
+     if (!isset($_cart_pid_map[$_cpid])) $_cart_pid_map[$_cpid] = $_citem + ['_ckey'=>$_ckey];
+ }
     $sql = "SELECT * FROM products WHERE id IN(";
-			foreach($_SESSION['cart'] as $id => $value){
+			foreach($_cart_pid_map as $id => $value){
 			$sql .=$id. ",";
 			}
 			$sql=substr($sql,0,-1) . ") ORDER BY id ASC";
@@ -290,8 +300,10 @@ if(!empty($_SESSION['cart'])){
 			$totalqunty=0;
 			if(!empty($query)){
 			while($row = mysqli_fetch_array($query)){
-				$quantity=$_SESSION['cart'][$row['id']]['quantity'];
-				$subtotal= $_SESSION['cart'][$row['id']]['quantity']*$row['productPrice']+$row['shippingCharge'];
+				$_ci = $_cart_pid_map[$row['id']];
+				$quantity=$_ci['quantity'];
+				$_item_price = floatval($_ci['price'] ?? $row['productPrice']);
+				$subtotal= $quantity*$_item_price+$row['shippingCharge'];
 				$totalprice += $subtotal;
 				$_SESSION['qnty']=$totalqunty+=$quantity;
 
@@ -311,9 +323,12 @@ if(!empty($_SESSION['cart'])){
 
 $_SESSION['sid']=$pd;
 						 ?></a></h4>
-<?php if (!empty($_SESSION['cart'][$row['id']]['customization'])): ?>
+<?php if (!empty($_ci['variant_label'])): ?>
+<div style="font-size:11px;color:#2980b9;margin-top:3px;font-weight:600"><?php echo htmlspecialchars($_ci['variant_label']); ?></div>
+<?php endif; ?>
+<?php if (!empty($_ci['customization'])): ?>
 <div style="font-size:11px;color:#555;margin-top:4px;background:#f5f5f5;border-radius:4px;padding:4px 8px">
-<?php foreach ($_SESSION['cart'][$row['id']]['customization'] as $_ck => $_cv): ?>
+<?php foreach ($_ci['customization'] as $_ck => $_cv): ?>
 <div><strong><?php echo htmlspecialchars($_ck); ?>:</strong> <?php echo htmlspecialchars($_cv); ?></div>
 <?php endforeach; ?>
 </div>
@@ -341,14 +356,14 @@ $num=mysqli_num_rows($rt);
 				                  <div class="arrow plus gradient"><span class="ir"><i class="icon fa fa-sort-asc"></i></span></div>
 				                  <div class="arrow minus gradient"><span class="ir"><i class="icon fa fa-sort-desc"></i></span></div>
 				                </div>
-				             <input type="text" value="<?php echo $_SESSION['cart'][$row['id']]['quantity']; ?>" name="quantity[<?php echo $row['id']; ?>]">
+				             <input type="text" value="<?php echo $quantity; ?>" name="quantity[<?php echo $row['id']; ?>]">
 				             
 			              </div>
 		            </td>
 					<td class="cart-product-sub-total"><span class="cart-sub-total-price"><?php echo "COP"." ".$row['productPrice']; ?>.00</span></td>
 <td class="cart-product-sub-total"><span class="cart-sub-total-price"><?php echo "$"." ".$row['shippingCharge']; ?>.00</span></td>
 
-					<td class="cart-product-grand-total"><span class="cart-grand-total-price" id="row-total-<?php echo intval($row['id']); ?>"><?php echo ($_SESSION['cart'][$row['id']]['quantity']*$row['productPrice']+$row['shippingCharge']); ?>.00</span></td>
+					<td class="cart-product-grand-total"><span class="cart-grand-total-price" id="row-total-<?php echo intval($row['id']); ?>"><?php echo ($quantity*$_item_price+$row['shippingCharge']); ?>.00</span></td>
 				</tr>
 
 				<?php } }
@@ -682,8 +697,9 @@ while($row=mysqli_fetch_array($query))
 			    while ($dr = mysqli_fetch_assoc($dr_q)) {
 			        // Contar cuántos productos del carrito son de esta categoría
 			        $cat_count = 0; $cat_subtotal = 0;
-			        foreach ($_SESSION['cart'] as $cart_pid => $cart_item) {
-			            $cpq = mysqli_query($con, "SELECT catId, productPrice FROM products WHERE id=" . intval($cart_pid));
+			        foreach ($_SESSION['cart'] as $cart_ckey => $cart_item) {
+			            $cart_pid = strpos($cart_ckey,'_')!==false ? intval(explode('_',$cart_ckey,2)[0]) : intval($cart_ckey);
+			            $cpq = mysqli_query($con, "SELECT catId, productPrice FROM products WHERE id=" . $cart_pid);
 			            if ($cpq && $cprow = mysqli_fetch_assoc($cpq)) {
 			                if ($cprow['catId'] == $dr['cat_id']) {
 			                    $cat_count   += $cart_item['quantity'];

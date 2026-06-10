@@ -30,13 +30,44 @@ if (isset($_POST['checkout_submit'])) {
                 mysqli_stmt_execute($stmt_up); mysqli_stmt_close($stmt_up);
             }
 
-            // Insertar órdenes
+            // Insertar órdenes + descontar stock
             $stmt_ord = mysqli_prepare($con, "INSERT INTO orders(userId,productId,quantity) VALUES(?,?,?)");
+            // Guard: columna variant_id en order_items
+            $oi_chk = mysqli_query($con,"SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='order_items' AND COLUMN_NAME='variant_id'");
+            if (!$oi_chk || !mysqli_fetch_row($oi_chk)) {
+                mysqli_query($con,"ALTER TABLE order_items ADD COLUMN variant_id INT NULL DEFAULT NULL");
+            }
             if ($stmt_ord) {
-                foreach ($_SESSION['cart'] as $pid => $item) {
-                    $pid_i = intval($pid); $qty_i = intval($item['quantity']);
+                foreach ($_SESSION['cart'] as $ckey => $item) {
+                    // Parsear clave compuesta pid_vid o plain pid
+                    if (strpos($ckey, '_') !== false) {
+                        $parts = explode('_', $ckey, 2);
+                        $pid_i = intval($parts[0]); $vid_i = intval($parts[1]);
+                    } else {
+                        $pid_i = intval($ckey); $vid_i = 0;
+                    }
+                    $qty_i  = intval($item['quantity']);
+                    $price_i = floatval($item['price'] ?? 0);
                     mysqli_stmt_bind_param($stmt_ord, 'isi', $uid, (string)$pid_i, $qty_i);
                     mysqli_stmt_execute($stmt_ord);
+
+                    // Descontar stock
+                    $avail_r = mysqli_fetch_assoc(mysqli_query($con,"SELECT productAvailability FROM products WHERE id=$pid_i LIMIT 1"));
+                    if (($avail_r['productAvailability'] ?? '') !== 'On Order') {
+                        if ($vid_i > 0) {
+                            mysqli_query($con,"UPDATE product_variants SET stock_qty=GREATEST(0,stock_qty-$qty_i) WHERE id=$vid_i AND product_id=$pid_i");
+                            $stot = intval(mysqli_fetch_assoc(mysqli_query($con,"SELECT COALESCE(SUM(stock_qty),0) t FROM product_variants WHERE product_id=$pid_i AND is_active=1"))['t']);
+                            mysqli_query($con,"UPDATE products SET stock_qty=$stot WHERE id=$pid_i");
+                            $vqa  = intval(mysqli_fetch_assoc(mysqli_query($con,"SELECT stock_qty FROM product_variants WHERE id=$vid_i"))['stock_qty']??0);
+                            $au   = mysqli_real_escape_string($con,$_SESSION['user']??'guest');
+                            mysqli_query($con,"INSERT INTO stock_movements(product_id,variant_id,type,change_qty,qty_after,reason,admin_user) VALUES($pid_i,$vid_i,'out',-$qty_i,$vqa,'Venta online','$au')");
+                        } else {
+                            mysqli_query($con,"UPDATE products SET stock_qty=GREATEST(0,stock_qty-$qty_i) WHERE id=$pid_i");
+                            $qa  = intval(mysqli_fetch_assoc(mysqli_query($con,"SELECT stock_qty FROM products WHERE id=$pid_i LIMIT 1"))['stock_qty']??0);
+                            $au  = mysqli_real_escape_string($con,$_SESSION['user']??'guest');
+                            mysqli_query($con,"INSERT INTO stock_movements(product_id,type,change_qty,qty_after,reason,admin_user) VALUES($pid_i,'out',-$qty_i,$qa,'Venta online','$au')");
+                        }
+                    }
                 }
                 mysqli_stmt_close($stmt_ord);
             }
@@ -51,10 +82,12 @@ if (isset($_POST['checkout_submit'])) {
 
             // Puntos y retos
             $_cart_total = 0;
-            foreach ($_SESSION['cart'] as $pid => $item) {
-                $pr = mysqli_query($con, "SELECT productPrice, shippingCharge FROM products WHERE id=" . intval($pid));
+            foreach ($_SESSION['cart'] as $ckey => $item) {
+                $pid_k = strpos($ckey,'_')!==false ? intval(explode('_',$ckey,2)[0]) : intval($ckey);
+                $pr = mysqli_query($con, "SELECT productPrice, shippingCharge FROM products WHERE id=" . $pid_k);
                 if ($pr && $row_p = mysqli_fetch_assoc($pr)) {
-                    $_cart_total += ($row_p['productPrice'] + $row_p['shippingCharge']) * $item['quantity'];
+                    $item_price = floatval($item['price'] ?? $row_p['productPrice']);
+                    $_cart_total += ($item_price + $row_p['shippingCharge']) * $item['quantity'];
                 }
             }
             $pts_earn = max(1, intval($_cart_total / 1000));
@@ -80,11 +113,14 @@ $u   = $u_q ? mysqli_fetch_assoc($u_q) : [];
 // ── Calcular totales del carrito ─────────────────────────────────────────────
 $cart_items = [];
 $subtotal   = 0;
-foreach ($_SESSION['cart'] as $pid => $item) {
-    $pr = mysqli_query($con, "SELECT id, productName, productPrice, shippingCharge, productImage1 AS productImage FROM products WHERE id=" . intval($pid));
+foreach ($_SESSION['cart'] as $ckey => $item) {
+    $pid_k = strpos($ckey,'_')!==false ? intval(explode('_',$ckey,2)[0]) : intval($ckey);
+    $pr = mysqli_query($con, "SELECT id, productName, productPrice, shippingCharge, productImage1 AS productImage FROM products WHERE id=" . $pid_k);
     if ($pr && $row_p = mysqli_fetch_assoc($pr)) {
+        $item_price = floatval($item['price'] ?? $row_p['productPrice']);
         $row_p['qty'] = $item['quantity'];
-        $row_p['line_total'] = ($row_p['productPrice'] + $row_p['shippingCharge']) * $item['quantity'];
+        $row_p['variant_label'] = $item['variant_label'] ?? '';
+        $row_p['line_total'] = ($item_price + $row_p['shippingCharge']) * $item['quantity'];
         $subtotal += $row_p['line_total'];
         $cart_items[] = $row_p;
     }

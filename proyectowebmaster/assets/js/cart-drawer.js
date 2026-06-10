@@ -96,10 +96,11 @@
   }
 
   /* ─── AJAX con fetch ─────────────────── */
-  function cartRequest(action, id, qty, callback) {
-    var body = 'action=' + encodeURIComponent(action) +
-               '&id='     + encodeURIComponent(id) +
-               '&qty='    + encodeURIComponent(qty);
+  function cartRequest(action, id, qty, callback, vid) {
+    var body = 'action='     + encodeURIComponent(action) +
+               '&id='        + encodeURIComponent(id) +
+               '&qty='       + encodeURIComponent(qty) +
+               '&variant_id='+ encodeURIComponent(vid || 0);
     fetch('ajax-cart.php', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -139,8 +140,9 @@
         // Agregar al carrito
         if (t.classList && t.classList.contains('btn-add-to-cart')) {
           e.preventDefault();
-          var id = t.getAttribute('data-id');
-          cartRequest('add', id, 1, function() { openDrawer(); });
+          var id  = t.getAttribute('data-id');
+          var vid = t.getAttribute('data-variant-id') || '0';
+          cartRequest('add', id, 1, function() { openDrawer(); }, vid);
           return;
         }
         // Icono carrito header
