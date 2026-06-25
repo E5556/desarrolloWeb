@@ -490,48 +490,51 @@ $_hc_rows = $_hc_res ? mysqli_fetch_all($_hc_res, MYSQLI_ASSOC) : [];
 $_hc_chunks = array_chunk($_hc_rows, 2);
 foreach ($_hc_chunks as $_hc_pair):
 ?>
-			<div class="sections prod-slider-small outer-top-small">
-				<div class="row">
+			<div style="padding:20px 0 10px;">
+				<div class="row-fluid">
 <?php foreach ($_hc_pair as $_hc):
     $es_hc = mysqli_real_escape_string($con, $_hc["search_value"]);
     if ($_hc["search_type"] === "category") {
-        $_hc_q = mysqli_query($con, "SELECT * FROM products WHERE category='" . $es_hc . "' ORDER BY RAND() LIMIT 20");
+        // Buscar por ID numérico o por nombre de categoría
+        $_cat_id_r = mysqli_query($con, "SELECT id FROM category WHERE categoryName='" . $es_hc . "' LIMIT 1");
+        $_cat_id   = $_cat_id_r && ($_cir = mysqli_fetch_assoc($_cat_id_r)) ? intval($_cir['id']) : intval($es_hc);
+        $_hc_q = mysqli_query($con, "SELECT * FROM products WHERE category=" . $_cat_id . " ORDER BY RAND() LIMIT 20");
     } elseif ($_hc["search_type"] === "subcategory") {
-        $_hc_q = mysqli_query($con, "SELECT * FROM products WHERE subCategory='" . $es_hc . "' ORDER BY RAND() LIMIT 20");
+        // Buscar por ID numérico o por nombre de subcategoría
+        $_sub_id_r = mysqli_query($con, "SELECT id FROM subcategory WHERE subcategoryName='" . $es_hc . "' LIMIT 1");
+        $_sub_id   = $_sub_id_r && ($_sir = mysqli_fetch_assoc($_sub_id_r)) ? intval($_sir['id']) : intval($es_hc);
+        $_hc_q = mysqli_query($con, "SELECT * FROM products WHERE subCategory=" . $_sub_id . " ORDER BY RAND() LIMIT 20");
     } else {
         $_hc_q = mysqli_query($con, "SELECT * FROM products WHERE productDescription LIKE '%" . $es_hc . "%' OR productName LIKE '%" . $es_hc . "%' ORDER BY RAND() LIMIT 20");
     }
     $_hc_items = $_hc_q ? mysqli_fetch_all($_hc_q, MYSQLI_ASSOC) : [];
 ?>
-				<div class="col-md-6">
+				<div class="span6">
 					<section class="section">
 						<h3 class="section-title"><?php echo htmlspecialchars($_hc["title"]); ?></h3>
 						<?php if (empty($_hc_items)): ?>
-						<p class="text-muted" style="font-style:italic;font-size:.85em">No hay productos para este criterio.</p>
+						<p style="color:#aaa;font-style:italic;font-size:.85em">No hay productos para este criterio.</p>
 						<?php else: ?>
-						<div class="owl-carousel homepage-owl-carousel custom-carousel outer-top-xs owl-theme" data-item="2">
-						<?php foreach ($_hc_items as $row): ?>
-						<div class="item item-carousel">
-							<div class="products"><div class="product">
-								<div class="product-image"><div class="image">
-									<a href="product-details.php?pid=<?php echo htmlentities($row["id"]); ?>"><?php product_img_tag($row, 180, 300); ?></a>
-								</div></div>
-								<div class="product-info text-left">
-									<h3 class="name"><a href="product-details.php?pid=<?php echo htmlentities($row["id"]); ?>"><?php echo htmlentities($row["productName"]); ?></a></h3>
-									<div class="rating rateit-small"></div>
-									<div class="product-price"><?php render_price($row, $_CURRENCY); ?></div>
-								</div>
-								<?php if ($row["productAvailability"] === "In Stock"): ?>
-								<div class="action"><button class="btn btn-primary btn-add-to-cart" data-id="<?php echo $row["id"]; ?>" type="button"><i class="fa fa-shopping-cart"></i> Agregar</button></div>
-								<?php elseif ($row["productAvailability"] === "On Order"): ?>
-								<div class="action"><button class="btn btn-warning btn-add-to-cart" data-id="<?php echo $row["id"]; ?>" type="button"><i class="fa fa-shopping-cart"></i> Bajo Pedido</button></div>
-								<?php else: ?>
-								<div class="action" style="color:red">Sin Stock</div>
-								<?php endif; ?>
-							</div></div>
+						<div style="display:flex;gap:10px;margin-top:12px;flex-wrap:nowrap;overflow:hidden">
+						<?php foreach (array_slice($_hc_items, 0, 4) as $row): ?>
+						<div style="flex:0 0 calc(25% - 8px);min-width:0;background:#1a1a1a;border-radius:6px;overflow:hidden">
+							<a href="product-details.php?pid=<?php echo intval($row['id']); ?>" style="display:block;overflow:hidden;aspect-ratio:3/4">
+								<img src="admin/productimages/<?php echo intval($row['id']); ?>/<?php echo htmlentities($row['productImage1']); ?>" alt="" style="width:100%;height:100%;object-fit:cover;display:block;transition:transform .3s" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+							</a>
+							<div style="padding:8px 8px 4px">
+								<a href="product-details.php?pid=<?php echo intval($row['id']); ?>" style="color:#fff;font-size:.8em;font-weight:600;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><?php echo htmlentities($row['productName']); ?></a>
+								<div style="color:#e91e8c;font-weight:700;font-size:.85em;margin-top:3px"><?php render_price($row, $_CURRENCY); ?></div>
+							</div>
+							<?php if ($row['productAvailability'] === 'In Stock'): ?>
+							<div style="padding:0 8px 8px"><button class="btn btn-primary btn-add-to-cart" data-id="<?php echo intval($row['id']); ?>" style="width:100%;font-size:.75em;padding:5px 0"><i class="fa fa-shopping-cart"></i> Agregar</button></div>
+							<?php elseif ($row['productAvailability'] === 'On Order'): ?>
+							<div style="padding:0 8px 8px"><button class="btn btn-warning btn-add-to-cart" data-id="<?php echo intval($row['id']); ?>" style="width:100%;font-size:.75em;padding:5px 0">Bajo Pedido</button></div>
+							<?php else: ?>
+							<div style="padding:4px 8px 8px;color:#e74c3c;font-size:.75em;text-align:center">Sin Stock</div>
+							<?php endif; ?>
 						</div>
 						<?php endforeach; ?>
-						</div><!-- /.homepage-owl-carousel -->
+						</div>
 						<?php endif; ?>
 					</section>
 				</div>
