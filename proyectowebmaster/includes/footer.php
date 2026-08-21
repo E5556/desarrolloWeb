@@ -137,10 +137,7 @@ $(document).ready(function(){
 });
 </script>
 <!-- ═══════════════════════════ NEWSLETTER : END ═══ -->
-<script src="assets/js/darkmode.js"></script>
 <script src="assets/js/notifications.js"></script>
-<script src="assets/js/chatbot.js"></script>
-<script src="assets/js/livechat.js"></script>
 <!-- PWA Service Worker (W1) -->
 <script>
 if ('serviceWorker' in navigator) {
@@ -331,6 +328,10 @@ function pwaInstall() {
 <div id="ps-fab-stack">
     <button id="ps-back-top" title="Volver arriba"><i class="fa fa-angle-up"></i></button>
 </div>
+<!-- FAB scripts DESPUÉS del #ps-fab-stack para que getElementById los encuentre -->
+<script src="assets/js/darkmode.js"></script>
+<script src="assets/js/chatbot.js"></script>
+<script src="assets/js/livechat.js"></script>
 <script>
 $(document).ready(function(){
     $(window).on('scroll', function(){

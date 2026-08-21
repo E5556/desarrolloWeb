@@ -12,7 +12,7 @@ _style.textContent =
 '#lc-btn:hover{background:#c0392b}' +
 '#lc-btn i{color:#fff;font-size:22px}' +
 '#lc-badge{position:absolute;top:-4px;right:-4px;background:#f39c12;color:#fff;border-radius:10px;font-size:10px;padding:1px 5px;display:none}' +
-'#lc-window{position:fixed;bottom:80px;right:20px;width:300px;background:#fff;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.2);z-index:1050;display:none;flex-direction:column;overflow:hidden;font-family:Arial,sans-serif}' +
+'#lc-window{position:fixed;bottom:20px;right:76px;width:300px;background:#fff;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.2);z-index:1050;display:none;flex-direction:column;overflow:hidden;font-family:Arial,sans-serif}' +
 '#lc-head{background:#e8233a;color:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:700}' +
 '#lc-msgs{flex:1;max-height:260px;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:6px}' +
 '.lc-msg{padding:6px 10px;border-radius:8px;max-width:85%;font-size:12px;line-height:1.4;word-break:break-word}' +

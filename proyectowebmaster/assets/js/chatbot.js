@@ -52,7 +52,7 @@
         style.textContent =
             '#ps-chat-fab{width:46px;height:46px;border-radius:50%;background:#c0396b;color:#fff;border:none;font-size:20px;cursor:pointer;box-shadow:0 2px 10px rgba(192,57,107,.4);display:flex;align-items:center;justify-content:center;transition:transform .2s;position:relative;flex-shrink:0}' +
             '#ps-chat-fab:hover{transform:scale(1.08)}' +
-            '#ps-chat-box{position:fixed;bottom:138px;right:20px;width:300px;background:#fff;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,.15);z-index:9980;display:none;flex-direction:column;overflow:hidden;border:1px solid #eee}' +
+            '#ps-chat-box{position:fixed;bottom:20px;right:76px;width:300px;background:#fff;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,.15);z-index:9980;display:none;flex-direction:column;overflow:hidden;border:1px solid #eee}' +
             '#ps-chat-box.open{display:flex}' +
             '#ps-chat-head{background:#e8233a;color:#fff;padding:12px 14px;font-weight:700;font-size:13px;display:flex;align-items:center;gap:8px}' +
             '#ps-chat-head .ps-ch-dot{width:8px;height:8px;border-radius:50%;background:#7fff7f;display:inline-block}' +
