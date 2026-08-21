@@ -565,11 +565,9 @@ img { max-width: 100%; height: auto; }
 [data-theme="dark"] .color-bg { background: #0d0d0d !important; }
 [data-theme="dark"] .breadcrumb { background: #1a1a1a !important; border-color: #2e2e2e !important; }
 
-/* Toggle button */
+/* Toggle button — vive dentro de #ps-fab-stack */
 #ps-dark-toggle {
-    position: fixed;
-    bottom: 24px;
-    right: 72px;
+    position: relative;
     width: 42px;
     height: 42px;
     border-radius: 50%;
@@ -584,6 +582,7 @@ img { max-width: 100%; height: auto; }
     align-items: center;
     justify-content: center;
     transition: background .2s, transform .2s;
+    flex-shrink: 0;
 }
 #ps-dark-toggle:hover { transform: scale(1.1); background: #e8233a; }
 [data-theme="dark"] #ps-dark-toggle { background: #f5c518; color: #111; }

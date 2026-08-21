@@ -15,7 +15,7 @@
         btn.id = 'ps-dark-toggle';
         btn.title = 'Cambiar tema';
         btn.innerHTML = saved === 'dark' ? '☀️' : '🌙';
-        document.body.appendChild(btn);
+        (document.getElementById('ps-fab-stack') || document.body).appendChild(btn);
         btn.addEventListener('click', function () {
             var cur = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
             applyTheme(cur);

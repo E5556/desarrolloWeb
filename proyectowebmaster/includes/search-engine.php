@@ -86,16 +86,16 @@ function ps_search($con, string $query, int $limit = 12, int $offset = 0, string
     // Total
     $count_sql = "SELECT COUNT(DISTINCT p.id) as total
                   FROM products p
-                  WHERE $where_expr AND p.productStatus='1'";
+                  WHERE $where_expr";
     $count_q = mysqli_query($con, $count_sql);
     $total   = $count_q ? intval(mysqli_fetch_assoc($count_q)['total']) : 0;
 
     // Rows
-    $rows_sql = "SELECT DISTINCT p.id, p.productName, p.productImage, p.productPrice,
+    $rows_sql = "SELECT DISTINCT p.id, p.productName, p.productImage1 AS productImage, p.productPrice,
                         p.productAvailability, p.productCompany, p.shippingCharge,
                         $score_expr AS relevance_score
                  FROM products p
-                 WHERE $where_expr AND p.productStatus='1'
+                 WHERE $where_expr
                  ORDER BY $order_sql
                  LIMIT $limit OFFSET $offset";
 
@@ -114,7 +114,7 @@ function ps_search_did_you_mean($con, string $query): ?string {
     $tokens = ps_search_tokens($con, $query);
     if (empty($tokens)) return null;
     $sdx = soundex($tokens[0]);
-    $q = mysqli_query($con, "SELECT productName FROM products WHERE SOUNDEX(productName) = '$sdx' AND productStatus='1' LIMIT 1");
+    $q = mysqli_query($con, "SELECT productName FROM products WHERE SOUNDEX(productName) = '$sdx' LIMIT 1");
     if ($q && $r = mysqli_fetch_assoc($q)) return $r['productName'];
     return null;
 }

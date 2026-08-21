@@ -7,11 +7,11 @@ var open = false;
 
 var html = [
 '<style>',
-'#lc-btn{position:fixed;bottom:24px;right:20px;width:52px;height:52px;background:#e8233a;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.3);z-index:1050;transition:.2s}',
+'#lc-btn{width:46px;height:46px;background:#e8233a;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.3);transition:.2s;position:relative;flex-shrink:0}',
 '#lc-btn:hover{background:#c0392b}',
 '#lc-btn i{color:#fff;font-size:22px}',
 '#lc-badge{position:absolute;top:-4px;right:-4px;background:#f39c12;color:#fff;border-radius:10px;font-size:10px;padding:1px 5px;display:none}',
-'#lc-window{position:fixed;bottom:84px;right:20px;width:300px;background:#fff;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.2);z-index:1050;display:none;flex-direction:column;overflow:hidden;font-family:Arial,sans-serif}',
+'#lc-window{position:fixed;bottom:80px;right:20px;width:300px;background:#fff;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.2);z-index:1050;display:none;flex-direction:column;overflow:hidden;font-family:Arial,sans-serif}',
 '#lc-head{background:#e8233a;color:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:700}',
 '#lc-msgs{flex:1;max-height:260px;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:6px}',
 '.lc-msg{padding:6px 10px;border-radius:8px;max-width:85%;font-size:12px;line-height:1.4;word-break:break-word}',
@@ -34,8 +34,11 @@ var wrapper = document.createElement('div');
 wrapper.innerHTML = html;
 document.body.appendChild(wrapper);
 
+// Mover #lc-btn al stack FAB; #lc-window queda en body con position:fixed
 var btn = document.getElementById('lc-btn');
 var win = document.getElementById('lc-window');
+var _stack = document.getElementById('ps-fab-stack');
+if (_stack && btn) _stack.appendChild(btn);
 var msgs = document.getElementById('lc-msgs');
 var inp = document.getElementById('lc-input');
 var badge = document.getElementById('lc-badge');

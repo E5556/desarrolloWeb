@@ -301,13 +301,36 @@ function pwaInstall() {
   </div>
 </div>
 
-<!-- ═══ BACK TO TOP ═══ -->
+<!-- ═══ FAB STACK + BACK TO TOP ═══ -->
 <style>
-#ps-back-top{position:fixed;bottom:24px;right:22px;z-index:9990;width:42px;height:42px;border-radius:50%;background:#e8233a;color:#fff;border:none;box-shadow:0 4px 14px rgba(0,0,0,.22);cursor:pointer;display:none;align-items:center;justify-content:center;font-size:18px;transition:opacity .3s,transform .3s;}
+/* Contenedor que agrupa todos los botones flotantes */
+#ps-fab-stack{
+    position:fixed;
+    bottom:20px;
+    right:20px;
+    z-index:9999;
+    display:flex;
+    flex-direction:column-reverse;
+    align-items:center;
+    gap:10px;
+}
+/* Forzar que cada FAB individual use posición relativa dentro del stack */
+#ps-fab-stack #ps-back-top,
+#ps-fab-stack #ps-dark-toggle,
+#ps-fab-stack #ps-chat-fab,
+#ps-fab-stack #lc-btn {
+    position:relative !important;
+    bottom:auto !important;
+    right:auto !important;
+    top:auto !important;
+}
+/* Back to top */
+#ps-back-top{width:42px;height:42px;border-radius:50%;background:#e8233a;color:#fff;border:none;box-shadow:0 4px 14px rgba(0,0,0,.22);cursor:pointer;display:none;align-items:center;justify-content:center;font-size:18px;transition:opacity .3s,transform .3s;}
 #ps-back-top:hover{background:#c0396b;transform:translateY(-3px);}
-@media(max-width:480px){#ps-back-top{bottom:18px;right:14px;width:38px;height:38px;font-size:16px;}}
 </style>
-<button id="ps-back-top" title="Volver arriba"><i class="fa fa-angle-up"></i></button>
+<div id="ps-fab-stack">
+    <button id="ps-back-top" title="Volver arriba"><i class="fa fa-angle-up"></i></button>
+</div>
 <script>
 $(document).ready(function(){
     $(window).on('scroll', function(){
