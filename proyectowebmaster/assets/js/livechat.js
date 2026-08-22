@@ -1,32 +1,23 @@
 (function(){
 'use strict';
+
+// Solo mostrar el chat si el usuario está logueado en el frontend
+if (!window._psUserId || window._psUserId <= 0) return;
+
 var CHAT_URL = 'ajax-chat.php';
 var lastId = 0;
 var pollInterval = null;
 var open = false;
 
-// chat_sid: identificador de sesión de chat independiente de la sesión PHP de auth.
-// Se genera una sola vez y persiste en localStorage aunque el usuario se loguee/desloguee.
-var _chatSid = localStorage.getItem('ps_chat_sid');
+// chat_sid: identifica la conversación, separado de PHPSESSID
+// Se genera por usuario — se limpia al cerrar sesión (ver logout)
+var _chatSidKey = 'ps_chat_sid_u' + window._psUserId;
+var _chatSid = localStorage.getItem(_chatSidKey);
 if (!_chatSid || !/^[a-zA-Z0-9_-]{20,80}$/.test(_chatSid)) {
     var _arr = new Uint8Array(24);
     (window.crypto || window.msCrypto).getRandomValues(_arr);
     _chatSid = Array.from(_arr).map(function(b){ return ('0'+b.toString(36)).slice(-2); }).join('').slice(0,32);
-    localStorage.setItem('ps_chat_sid', _chatSid);
-}
-
-// Si el usuario está logueado, vincular este chat_sid a su user_id en el servidor.
-if (window._psUserId && window._psUserId > 0) {
-    var _lxhr = new XMLHttpRequest();
-    _lxhr.open('POST', 'ajax-chat.php', true);
-    _lxhr.setRequestHeader('Content-Type','application/x-www-form-urlencoded');
-    _lxhr.onload = function(){
-        try {
-            var _r = JSON.parse(_lxhr.responseText);
-            console.log('[chat link]', _r, 'sid='+_chatSid, 'uid='+window._psUserId);
-        } catch(e) { console.log('[chat link raw]', _lxhr.responseText); }
-    };
-    _lxhr.send('action=link&chat_sid='+encodeURIComponent(_chatSid)+'&client_uid='+encodeURIComponent(window._psUserId));
+    localStorage.setItem(_chatSidKey, _chatSid);
 }
 
 // Inyectar estilos
@@ -83,6 +74,13 @@ function addMsg(m){
 
 function escHtml(s){ var d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
 
+function handleAuthError(){
+    // Sesión expirada en el servidor — detener polling y ocultar botón
+    clearInterval(pollInterval);
+    btn.style.display='none';
+    win.style.display='none';
+}
+
 function poll(){
     var xhr=new XMLHttpRequest();
     xhr.open('POST', CHAT_URL, true);
@@ -90,6 +88,7 @@ function poll(){
     xhr.onload=function(){
         try{
             var r=JSON.parse(xhr.responseText);
+            if(r.error === 'auth_required' || r.error === 'forbidden'){ handleAuthError(); return; }
             if(r.msgs && r.msgs.length){
                 r.msgs.forEach(function(m){
                     addMsg(m);
@@ -108,7 +107,6 @@ function sendMsg(){
     var msg=inp.value.trim();
     if(!msg) return;
     inp.value='';
-    // Mostrar mensaje localmente de inmediato (optimistic UI)
     addMsg({sender:'user',message:msg,created_at:null});
     var xhr=new XMLHttpRequest();
     xhr.open('POST', CHAT_URL, true);
@@ -116,7 +114,7 @@ function sendMsg(){
     xhr.onload=function(){
         try{
             var r=JSON.parse(xhr.responseText);
-            // Actualizar lastId con el id real para que poll() no traiga este mensaje de vuelta
+            if(r.error === 'auth_required' || r.error === 'forbidden'){ handleAuthError(); return; }
             if(r.ok && r.id) lastId=Math.max(lastId, parseInt(r.id));
         }catch(e){}
     };
@@ -132,7 +130,6 @@ document.getElementById('lc-close').addEventListener('click',function(){ open=fa
 document.getElementById('lc-send').addEventListener('click',sendMsg);
 inp.addEventListener('keypress',function(e){ if(e.key==='Enter') sendMsg(); });
 
-// Start polling after 1s, every 2s
 setTimeout(function(){
     poll();
     pollInterval=setInterval(poll, 2000);
