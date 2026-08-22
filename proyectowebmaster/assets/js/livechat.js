@@ -84,12 +84,19 @@ function sendMsg(){
     var msg=inp.value.trim();
     if(!msg) return;
     inp.value='';
+    // Mostrar mensaje localmente de inmediato (optimistic UI)
+    addMsg({sender:'user',message:msg,created_at:null});
     var xhr=new XMLHttpRequest();
     xhr.open('POST', CHAT_URL, true);
     xhr.setRequestHeader('Content-Type','application/x-www-form-urlencoded');
-    xhr.onload=function(){ try{ var r=JSON.parse(xhr.responseText); if(r.ok) setTimeout(poll,300); }catch(e){} };
+    xhr.onload=function(){
+        try{
+            var r=JSON.parse(xhr.responseText);
+            // Actualizar lastId con el id real para que poll() no traiga este mensaje de vuelta
+            if(r.ok && r.id) lastId=Math.max(lastId, parseInt(r.id));
+        }catch(e){}
+    };
     xhr.send('action=send&msg='+encodeURIComponent(msg));
-    addMsg({sender:'user',message:msg,created_at:null});
 }
 
 btn.addEventListener('click',function(){

@@ -47,7 +47,7 @@ if ($action === 'send') {
         $uid_sql = $uid ? $uid : 'NULL';
         mysqli_query($con, "INSERT INTO live_chat_messages (session_id, user_id, sender, message) VALUES ('$sid_e',$uid_sql,'user','$msg_e')");
     }
-    echo json_encode(['ok'=>true]);
+    echo json_encode(['ok'=>true, 'id'=>mysqli_insert_id($con)]);
     exit();
 }
 
