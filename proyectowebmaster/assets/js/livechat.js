@@ -16,11 +16,16 @@ if (!_chatSid || !/^[a-zA-Z0-9_-]{20,80}$/.test(_chatSid)) {
 }
 
 // Si el usuario está logueado, vincular este chat_sid a su user_id en el servidor.
-// Se pasa client_uid directamente para no depender de $_SESSION en el servidor.
 if (window._psUserId && window._psUserId > 0) {
     var _lxhr = new XMLHttpRequest();
     _lxhr.open('POST', 'ajax-chat.php', true);
     _lxhr.setRequestHeader('Content-Type','application/x-www-form-urlencoded');
+    _lxhr.onload = function(){
+        try {
+            var _r = JSON.parse(_lxhr.responseText);
+            console.log('[chat link]', _r, 'sid='+_chatSid, 'uid='+window._psUserId);
+        } catch(e) { console.log('[chat link raw]', _lxhr.responseText); }
+    };
     _lxhr.send('action=link&chat_sid='+encodeURIComponent(_chatSid)+'&client_uid='+encodeURIComponent(window._psUserId));
 }
 
