@@ -135,4 +135,15 @@ if ($action === 'sessions') {
     exit();
 }
 
+/* ── LINK: vincular chat_sid al user_id cuando el usuario se loguea ── */
+if ($action === 'link') {
+    if ($is_admin) { echo json_encode(['ok'=>false]); exit(); }
+    // Requiere que haya sesión de usuario frontend activa
+    if (!$uid) { echo json_encode(['ok'=>false]); exit(); }
+    // Actualizar todos los mensajes de ese chat_sid con el user_id real
+    mysqli_query($con, "UPDATE live_chat_messages SET user_id=$uid WHERE session_id='$sid_e' AND user_id IS NULL");
+    echo json_encode(['ok'=>true]);
+    exit();
+}
+
 echo json_encode(['error' => 'unknown action']);

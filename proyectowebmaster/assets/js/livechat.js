@@ -15,6 +15,15 @@ if (!_chatSid || !/^[a-zA-Z0-9_-]{20,80}$/.test(_chatSid)) {
     localStorage.setItem('ps_chat_sid', _chatSid);
 }
 
+// Si el usuario está logueado, vincular este chat_sid a su user_id en el servidor.
+// Esto convierte los mensajes anónimos previos en mensajes del usuario registrado.
+if (window._psUserId && window._psUserId > 0) {
+    var _lxhr = new XMLHttpRequest();
+    _lxhr.open('POST', 'ajax-chat.php', true);
+    _lxhr.setRequestHeader('Content-Type','application/x-www-form-urlencoded');
+    _lxhr.send('action=link&chat_sid='+encodeURIComponent(_chatSid));
+}
+
 // Inyectar estilos
 var _style = document.createElement('style');
 _style.textContent =

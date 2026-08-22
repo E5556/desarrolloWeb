@@ -331,6 +331,10 @@ function pwaInstall() {
 <!-- FAB scripts DESPUÉS del #ps-fab-stack para que getElementById los encuentre -->
 <script src="assets/js/darkmode.js"></script>
 <script src="assets/js/chatbot.js"></script>
+<script>
+// user_id del frontend (0 si anónimo, >0 si logueado). No es admin: !$_SESSION['alogin']
+window._psUserId = <?php echo (isset($_SESSION['id']) && !isset($_SESSION['alogin'])) ? intval($_SESSION['id']) : 0; ?>;
+</script>
 <script src="assets/js/livechat.js"></script>
 <script>
 $(document).ready(function(){
