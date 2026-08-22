@@ -5,6 +5,16 @@ var lastId = 0;
 var pollInterval = null;
 var open = false;
 
+// chat_sid: identificador de sesión de chat independiente de la sesión PHP de auth.
+// Se genera una sola vez y persiste en localStorage aunque el usuario se loguee/desloguee.
+var _chatSid = localStorage.getItem('ps_chat_sid');
+if (!_chatSid || !/^[a-zA-Z0-9_-]{20,80}$/.test(_chatSid)) {
+    var _arr = new Uint8Array(24);
+    (window.crypto || window.msCrypto).getRandomValues(_arr);
+    _chatSid = Array.from(_arr).map(function(b){ return ('0'+b.toString(36)).slice(-2); }).join('').slice(0,32);
+    localStorage.setItem('ps_chat_sid', _chatSid);
+}
+
 // Inyectar estilos
 var _style = document.createElement('style');
 _style.textContent =
@@ -77,7 +87,7 @@ function poll(){
             }
         }catch(e){}
     };
-    xhr.send('action=poll&last_id='+lastId);
+    xhr.send('action=poll&last_id='+lastId+'&chat_sid='+encodeURIComponent(_chatSid));
 }
 
 function sendMsg(){
@@ -96,7 +106,7 @@ function sendMsg(){
             if(r.ok && r.id) lastId=Math.max(lastId, parseInt(r.id));
         }catch(e){}
     };
-    xhr.send('action=send&msg='+encodeURIComponent(msg));
+    xhr.send('action=send&msg='+encodeURIComponent(msg)+'&chat_sid='+encodeURIComponent(_chatSid));
 }
 
 btn.addEventListener('click',function(){

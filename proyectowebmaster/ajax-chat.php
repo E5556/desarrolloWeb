@@ -19,15 +19,33 @@ mysqli_query($con, "CREATE TABLE IF NOT EXISTS live_chat_messages (
     INDEX(created_at)
 )");
 
-$sid   = session_id();
-$sid_e = mysqli_real_escape_string($con, $sid);
-$uid   = isset($_SESSION['id']) ? intval($_SESSION['id']) : null;
-
-// Verificar admin via token HMAC (bypass problema de cookie de sesión entre rutas)
+// Verificar admin via token HMAC
 $_psid = $_POST['_sid'] ?? '';
 $_ptok = $_POST['_tok'] ?? '';
 $is_admin = ($_psid !== '' && $_ptok !== '' &&
     hash_equals(hash_hmac('sha256', $_psid, 'ps_chat_secret_2024'), $_ptok));
+
+if ($is_admin) {
+    // Admin: usa su propio sid del token HMAC como identificador
+    $sid = $_psid;
+    $uid = null;
+} else {
+    // Usuario del frontend: usa chat_sid propio guardado en localStorage,
+    // completamente separado de la sesión PHP de autenticación.
+    $raw_sid = $_POST['chat_sid'] ?? '';
+    if (!preg_match('/^[a-zA-Z0-9_-]{20,80}$/', $raw_sid)) {
+        echo json_encode(['error' => 'invalid_sid']); exit();
+    }
+    $sid = $raw_sid;
+
+    // user_id: solo si la sesión activa es de un usuario frontend (tiene $_SESSION['id']
+    // pero NO tiene $_SESSION['alogin'] que es exclusivo del admin)
+    $uid = null;
+    if (isset($_SESSION['id']) && !isset($_SESSION['alogin'])) {
+        $uid = intval($_SESSION['id']);
+    }
+}
+$sid_e = mysqli_real_escape_string($con, $sid);
 
 session_write_close();
 
