@@ -138,11 +138,22 @@ if ($action === 'sessions') {
 /* ── LINK: vincular chat_sid al user_id cuando el usuario se loguea ── */
 if ($action === 'link') {
     if ($is_admin) { echo json_encode(['ok'=>false]); exit(); }
-    // Requiere que haya sesión de usuario frontend activa
-    if (!$uid) { echo json_encode(['ok'=>false]); exit(); }
+    // Tomar uid de sesión PHP O del client_uid enviado por JS
+    $link_uid = $uid; // de $_SESSION
+    if (!$link_uid) {
+        $client_uid_raw = intval($_POST['client_uid'] ?? 0);
+        // Verificar que ese user_id existe en la tabla users antes de usarlo
+        if ($client_uid_raw > 0) {
+            $cu_q = mysqli_query($con, "SELECT id FROM users WHERE id=$client_uid_raw LIMIT 1");
+            if ($cu_q && mysqli_num_rows($cu_q) > 0) {
+                $link_uid = $client_uid_raw;
+            }
+        }
+    }
+    if (!$link_uid) { echo json_encode(['ok'=>false,'reason'=>'no_uid']); exit(); }
     // Actualizar todos los mensajes de ese chat_sid con el user_id real
-    mysqli_query($con, "UPDATE live_chat_messages SET user_id=$uid WHERE session_id='$sid_e' AND user_id IS NULL");
-    echo json_encode(['ok'=>true]);
+    $affected = mysqli_query($con, "UPDATE live_chat_messages SET user_id=$link_uid WHERE session_id='$sid_e' AND (user_id IS NULL OR user_id=0)");
+    echo json_encode(['ok'=>true,'uid'=>$link_uid,'rows'=>mysqli_affected_rows($con)]);
     exit();
 }
 
