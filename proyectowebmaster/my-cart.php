@@ -52,6 +52,19 @@ else{
         mysqli_stmt_execute($stmt_ord);
     }
     mysqli_stmt_close($stmt_ord);
+    // Registrar ítems de bundles en orders también
+    if (!empty($_SESSION['bundles_cart'])) {
+        $stmt_b = mysqli_prepare($con, "INSERT INTO orders(userId,productId,quantity) VALUES(?,?,?)");
+        foreach ($_SESSION['bundles_cart'] as $_bord) {
+            foreach ($_bord['items'] as $_bi_ord) {
+                $bpid = intval($_bi_ord['id']); $bqty = intval($_bi_ord['qty']);
+                mysqli_stmt_bind_param($stmt_b, 'iii', $uid, $bpid, $bqty);
+                mysqli_stmt_execute($stmt_b);
+            }
+        }
+        mysqli_stmt_close($stmt_b);
+        unset($_SESSION['bundles_cart']);
+    }
     // Registrar uso del cupón si aplica
     if (!empty($_SESSION['coupon']['id'])) {
         $cid = intval($_SESSION['coupon']['id']);
@@ -260,6 +273,48 @@ $_empty_suggestions = array_slice($_empty_suggestions, 0, 6);
 .qty-stepper input::-webkit-inner-spin-button,
 .qty-stepper input::-webkit-outer-spin-button { -webkit-appearance: none; }
 
+/* ── Bundle en carrito ── */
+.bundle-cart-block {
+    background: linear-gradient(135deg,#fff9f9,#fff);
+    border: 2px solid #e8233a;
+    border-radius: 14px;
+    margin-bottom: 18px;
+    overflow: hidden;
+}
+.bundle-cart-head {
+    background: linear-gradient(135deg,#e8233a,#c0392b);
+    color: #fff; padding: 12px 18px;
+    display: flex; justify-content: space-between; align-items: center;
+}
+.bundle-cart-head .bc-title { font-weight: 800; font-size: 15px; }
+.bundle-cart-head .bc-badge {
+    background: rgba(255,255,255,.25); border-radius: 20px;
+    padding: 3px 12px; font-size: 12px; font-weight: 700;
+}
+.bundle-cart-items { display: flex; flex-wrap: wrap; gap: 10px; padding: 14px 18px; }
+.bundle-cart-item {
+    display: flex; align-items: center; gap: 8px;
+    background: #fff; border: 1px solid #f5e0e0;
+    border-radius: 8px; padding: 8px 10px; font-size: 12px; flex: 0 0 auto;
+}
+.bundle-cart-item img { width: 36px; height: 44px; object-fit: cover; border-radius: 5px; background: #f5f5f5; }
+.bundle-cart-item .bci-name { font-weight: 600; color: #2c3e50; max-width: 120px; }
+.bundle-cart-item .bci-qty  { color: #888; font-size: 11px; }
+.bundle-cart-foot {
+    border-top: 1px solid #fde; padding: 12px 18px;
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;
+}
+.bundle-cart-foot .bc-prices { display: flex; align-items: center; gap: 14px; }
+.bundle-cart-foot .bc-regular { font-size: 12px; color: #bbb; text-decoration: line-through; }
+.bundle-cart-foot .bc-saving  { font-size: 12px; color: #27ae60; font-weight: 700; }
+.bundle-cart-foot .bc-total   { font-size: 18px; font-weight: 800; color: #e8233a; }
+.btn-remove-bundle {
+    background: none; border: 1.5px solid #f5b7b1; color: #e74c3c;
+    border-radius: 7px; padding: 6px 14px; font-size: 12px; font-weight: 700;
+    cursor: pointer; transition: .2s;
+}
+.btn-remove-bundle:hover { background: #e74c3c; color: #fff; }
+
 /* ── Remove button ── */
 .btn-remove-item {
     background: none; border: 1.5px solid #f5b7b1; color: #e74c3c;
@@ -351,7 +406,54 @@ $_empty_suggestions = array_slice($_empty_suggestions, 0, 6);
 			<div class="shopping-cart">
 				<div class="col-md-12 col-sm-12 shopping-cart-table ">
 	<div class="table-responsive">
-<form name="cart" method="post">	
+<form name="cart" method="post">
+
+<?php
+// ── ELIMINAR BUNDLE DEL CARRITO ──
+if (isset($_GET['remove_bundle'])) {
+    $rbid = intval($_GET['remove_bundle']);
+    unset($_SESSION['bundles_cart'][$rbid]);
+    header('location:my-cart.php'); exit();
+}
+
+// ── BUNDLES EN SESIÓN ──
+$_bundles_total = 0;
+if (!empty($_SESSION['bundles_cart'])):
+    foreach ($_SESSION['bundles_cart'] as $_bc):
+        $_bundles_total += floatval($_bc['bundle_price']);
+?>
+<div class="bundle-cart-block">
+    <div class="bundle-cart-head">
+        <span class="bc-title"><i class="fa fa-gift"></i> <?php echo htmlspecialchars($_bc['name']); ?></span>
+        <span class="bc-badge">Ahorro: $<?php echo number_format($_bc['savings'],0,'.',','); ?> (<?php echo $_bc['pct']; ?>% off)</span>
+    </div>
+    <div class="bundle-cart-items">
+        <?php foreach ($_bc['items'] as $_bi): ?>
+        <div class="bundle-cart-item">
+            <img src="admin/productimages/<?php echo $_bi['id']; ?>/<?php echo htmlspecialchars($_bi['image']); ?>"
+                 onerror="this.style.opacity='.2'" alt="">
+            <div>
+                <div class="bci-name"><?php echo htmlspecialchars($_bi['name']); ?></div>
+                <div class="bci-qty">x<?php echo $_bi['qty']; ?> &bull; $<?php echo number_format($_bi['price'],0,'.',','); ?> c/u</div>
+            </div>
+        </div>
+        <?php endforeach; ?>
+    </div>
+    <div class="bundle-cart-foot">
+        <div class="bc-prices">
+            <span class="bc-regular">$<?php echo number_format($_bc['regular_total'],0,'.',','); ?></span>
+            <span class="bc-saving"><i class="fa fa-arrow-down"></i> Ahorras $<?php echo number_format($_bc['savings'],0,'.',','); ?></span>
+            <span class="bc-total">$<?php echo number_format($_bc['bundle_price'],0,'.',','); ?></span>
+        </div>
+        <a href="my-cart.php?remove_bundle=<?php echo intval($_bc['bundle_id']); ?>"
+           class="btn-remove-bundle"
+           onclick="return confirm('¿Quitar el pack «<?php echo htmlspecialchars(addslashes($_bc['name'])); ?>» del carrito?')">
+            <i class="fa fa-trash"></i> Quitar pack
+        </a>
+    </div>
+</div>
+<?php endforeach; endif; ?>
+
 <?php
 if(!empty($_SESSION['cart'])){
 
@@ -624,8 +726,20 @@ function syncSaveAddr(){
         <span style="color:#888">Subtotal productos</span>
         <strong id="cart-page-total">$<?php echo number_format($totalprice, 0, '.', ','); ?></strong>
     </div>
+    <?php if (!empty($_SESSION['bundles_cart'])): ?>
+    <?php foreach ($_SESSION['bundles_cart'] as $_bs): ?>
+    <div class="total-row" style="color:#e8233a">
+        <span><i class="fa fa-gift"></i> <?php echo htmlspecialchars($_bs['name']); ?></span>
+        <strong>$<?php echo number_format($_bs['bundle_price'],0,'.',','); ?></strong>
+    </div>
+    <?php endforeach; ?>
+    <div class="total-row" style="font-size:12px;color:#27ae60">
+        <span><i class="fa fa-arrow-down"></i> Ahorro en packs</span>
+        <strong>−$<?php echo number_format(array_sum(array_column($_SESSION['bundles_cart'],'savings')),0,'.',','); ?></strong>
+    </div>
+    <?php endif; ?>
     <div style="height:1px;background:#f0f0f0;margin:4px 0"></div>
-    <div id="totals-extra"><!-- cupón, puntos, zona, descuentos se insertan aquí --></div>
+    <div id="totals-extra"></div>
 
     <!-- Cupón -->
     <div style="margin:14px 0 10px">
@@ -786,8 +900,12 @@ function syncSaveAddr(){
             $<?php
             $_base_total = $totalprice - $_cat_discount_total;
             if (isset($_SESSION['coupon'])) $_base_total = $_SESSION['coupon']['final'] - $_cat_discount_total;
-            if (!empty($_SESSION['bundle_discount']['amount'])) $_base_total -= floatval($_SESSION['bundle_discount']['amount']);
-            echo number_format(max(0, $_base_total - $_level_disc_amt), 0, '.', ',');
+            // Sumar bundles (ya vienen con precio de oferta, no necesitan descuento adicional)
+            $_bundles_total_final = 0;
+            if (!empty($_SESSION['bundles_cart'])) {
+                foreach ($_SESSION['bundles_cart'] as $_bfin) $_bundles_total_final += floatval($_bfin['bundle_price']);
+            }
+            echo number_format(max(0, $_base_total - $_level_disc_amt + $_bundles_total_final), 0, '.', ',');
             ?>
         </span>
     </div>
@@ -996,15 +1114,16 @@ $(document).ready(function () {
     return rowTotal;
   }
 
+  var BUNDLES_TOTAL = <?php echo !empty($_SESSION['bundles_cart']) ? array_sum(array_column($_SESSION['bundles_cart'],'bundle_price')) : 0; ?>;
+
   function recalcAll() {
     var grand = 0;
     $('tr[data-id]').each(function () { grand += recalcRow($(this)); });
     $('#cart-page-total').text(fmtNum(grand));
     $('#header-cart-total').text(Math.round(grand).toLocaleString('es-CO'));
-    // Recalcular total final restando descuentos ya aplicados
     var couponDisc  = parseFloat($('#coupon-discount-line').text().replace(/[^0-9]/g,'')) || 0;
     var pointsDisc  = parseFloat($('#points-discount-line').text().replace(/[^0-9]/g,'')) || 0;
-    var finalTotal  = Math.max(0, grand - couponDisc - pointsDisc);
+    var finalTotal  = Math.max(0, grand - couponDisc - pointsDisc + BUNDLES_TOTAL);
     $('#cart-final-total').text(fmtNum(finalTotal));
   }
 
@@ -1022,24 +1141,34 @@ $(document).ready(function () {
   }
 
   // + botón (delegado en document)
-  $(document).on('click', '.qty-plus', function(){
+  $(document).on('click', '.qty-plus', function(e){
+    e.preventDefault();
+    var $stepper = $(this).closest('.qty-stepper');
+    var $inp     = $stepper.find('input[type="number"]');
+    var current  = parseInt($inp[0].value, 10);
+    if (isNaN(current) || current < 1) current = 1;
     var $row = $(this).closest('tr[data-id]');
-    var $inp = $(this).closest('.qty-stepper').find('input');
-    saveQty($row, (parseInt($inp.val()) || 1) + 1);
+    saveQty($row, current + 1);
   });
 
   // − botón (delegado en document)
-  $(document).on('click', '.qty-minus', function(){
+  $(document).on('click', '.qty-minus', function(e){
+    e.preventDefault();
+    var $stepper = $(this).closest('.qty-stepper');
+    var $inp     = $stepper.find('input[type="number"]');
+    var current  = parseInt($inp[0].value, 10);
+    if (isNaN(current) || current < 2) current = 2;
     var $row = $(this).closest('tr[data-id]');
-    var $inp = $(this).closest('.qty-stepper').find('input');
-    var v = (parseInt($inp.val())||1) - 1;
-    saveQty($row, v < 1 ? 1 : v);
+    saveQty($row, current - 1);
   });
 
   // Edición manual del input
-  $(document).on('change', 'input[name^="quantity"]', function(){
+  $(document).on('change blur', 'input[name^="quantity"]', function(e){
+    e.preventDefault();
     var $row = $(this).closest('tr[data-id]');
-    saveQty($row, parseInt($(this).val()) || 1);
+    var v = parseInt(this.value, 10);
+    if (isNaN(v) || v < 1) v = 1;
+    saveQty($row, v);
   });
 
 });

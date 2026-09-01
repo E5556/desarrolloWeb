@@ -24,22 +24,30 @@ while ($items_q && $row = mysqli_fetch_assoc($items_q)) {
 $savings = $regular_total - $bundle['bundle_price'];
 $pct     = $regular_total > 0 ? round($savings / $regular_total * 100) : 0;
 
-// Add bundle to cart
+// Add bundle to cart — se guarda como entrada única en $_SESSION['bundles_cart']
 if (isset($_POST['add_bundle'])) {
-    if (!isset($_SESSION['cart'])) $_SESSION['cart'] = [];
+    if (!isset($_SESSION['bundles_cart'])) $_SESSION['bundles_cart'] = [];
+    $bundle_entry = [
+        'bundle_id'     => $bid,
+        'name'          => $bundle['name'],
+        'description'   => $bundle['description'] ?? '',
+        'bundle_price'  => floatval($bundle['bundle_price']),
+        'regular_total' => $regular_total,
+        'savings'       => max(0, $savings),
+        'pct'           => $pct,
+        'items'         => [],
+    ];
     foreach ($items as $it) {
-        $pid = intval($it['id']);
-        if (isset($_SESSION['cart'][$pid])) {
-            $_SESSION['cart'][$pid]['quantity'] += intval($it['bqty']);
-        } else {
-            $_SESSION['cart'][$pid] = ['quantity' => intval($it['bqty']), 'price' => floatval($it['productPrice'])];
-        }
+        $bundle_entry['items'][] = [
+            'id'           => intval($it['id']),
+            'name'         => $it['productName'],
+            'price'        => floatval($it['productPrice']),
+            'qty'          => intval($it['bqty']),
+            'image'        => $it['productImage1'],
+        ];
     }
-    // Apply bundle price discount as a virtual coupon in session
-    $_SESSION['bundle_discount'] = ['name' => $bundle['name'], 'amount' => max(0, $savings)];
-    if (!empty($_SESSION['login'])) {
-        include_once('includes/cart.php'); ps_cart_save($con, intval($_SESSION['id']));
-    }
+    // Si el mismo bundle ya está, lo reemplaza (no acumula duplicados)
+    $_SESSION['bundles_cart'][$bid] = $bundle_entry;
     header('location:my-cart.php'); exit();
 }
 ?>
