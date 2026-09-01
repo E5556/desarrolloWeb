@@ -480,6 +480,9 @@ while ($_c = mysqli_fetch_assoc($_cats_raw)) {
             <div class="ps-nav-item">
                 <a href="index2.php" class="ps-active">Inicio</a>
             </div>
+            <div class="ps-nav-item">
+                <a href="bundles-list.php" style="color:#e8233a;font-weight:700">🎁 Packs Oferta</a>
+            </div>
             <?php foreach ($_cats as $_cat): ?>
             <div class="ps-nav-item">
                 <a href="category.php?cid=<?php echo (int)$_cat['id']; ?>">

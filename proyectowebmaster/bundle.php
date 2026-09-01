@@ -48,71 +48,108 @@ if (isset($_POST['add_bundle'])) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title><?php echo htmlspecialchars($bundle['name']); ?> | Bundle</title>
+<title><?php echo htmlspecialchars($bundle['name']); ?> | Pack Oferta</title>
 <link rel="stylesheet" href="assets/css/bootstrap.min.css">
 <link rel="stylesheet" href="assets/css/font-awesome.min.css">
+<link rel="stylesheet" href="assets/css/style.css">
+<link rel="stylesheet" href="assets/css/cosmetics.css">
 <style>
-body{background:#f4f6f9;font-family:'Segoe UI',Arial,sans-serif;padding:40px 0}
-.bundle-card{max-width:800px;margin:0 auto;background:#fff;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,.08);overflow:hidden}
-.bundle-header{background:linear-gradient(135deg,#e8233a,#c0392b);color:#fff;padding:28px 32px}
-.bundle-body{padding:28px 32px}
-.item-card{display:flex;align-items:center;gap:14px;padding:12px;background:#f8f9fa;border-radius:8px;margin-bottom:10px}
-.item-card img{width:60px;height:75px;object-fit:contain;background:#fff;border-radius:6px}
-.savings-badge{background:#f39c12;color:#fff;border-radius:20px;padding:4px 14px;font-size:13px;font-weight:600}
+.bundle-wrap { max-width: 780px; margin: 36px auto 60px; }
+.bundle-hero {
+    background: linear-gradient(135deg, #e8233a, #c0392b);
+    color: #fff; border-radius: 14px 14px 0 0; padding: 28px 32px;
+}
+.bundle-hero h1 { margin: 0 0 6px; font-size: 1.6em; font-weight: 800; }
+.bundle-hero p  { margin: 0; opacity: .85; font-size: 13px; }
+.bundle-body { background: #fff; border-radius: 0 0 14px 14px; box-shadow: 0 4px 24px rgba(0,0,0,.09); padding: 28px 32px; }
+.b-item { display:flex; align-items:center; gap:14px; padding:12px; background:#f8f9fa; border-radius:8px; margin-bottom:10px; }
+.b-item img { width:58px; height:70px; object-fit:cover; border-radius:6px; background:#fff; flex-shrink:0; }
+.b-item-info { flex:1; }
+.b-item-info strong { font-size:13px; }
+.b-item-info small  { color:#888; font-size:12px; }
+.b-item-subtotal { font-weight:700; font-size:14px; white-space:nowrap; }
+.b-totals { border-top:2px solid #f0f0f0; margin-top:20px; padding-top:18px; }
+.b-row { display:flex; justify-content:space-between; margin-bottom:8px; font-size:14px; }
+.badge-saving { background:#f39c12; color:#fff; border-radius:20px; padding:3px 12px; font-size:12px; font-weight:700; }
+.btn-add-bundle {
+    display:block; width:100%; margin-top:20px;
+    background:linear-gradient(135deg,#e8233a,#c0392b);
+    color:#fff; border:none; border-radius:9px;
+    padding:14px; font-size:15px; font-weight:700; cursor:pointer;
+    transition:opacity .2s;
+}
+.btn-add-bundle:hover { opacity:.88; }
 </style>
 </head>
 <body>
-<div class="bundle-card">
-<div class="bundle-header">
-<h2><i class="fa fa-archive"></i> <?php echo htmlspecialchars($bundle['name']); ?></h2>
-<?php if ($bundle['description']): ?><p style="margin:6px 0 0;opacity:.85"><?php echo htmlspecialchars($bundle['description']); ?></p><?php endif; ?>
-</div>
-<div class="bundle-body">
+<?php include('includes/top-header.php'); ?>
+<?php include('includes/main-header.php'); ?>
 
-<h5>Contenido del pack</h5>
-<?php foreach ($items as $it): ?>
-<div class="item-card">
-<img src="admin/productimages/<?php echo intval($it['id']); ?>/<?php echo htmlspecialchars($it['productImage1']); ?>" alt="">
-<div style="flex:1">
-<strong><?php echo htmlspecialchars($it['productName']); ?></strong><br>
-<span class="text-muted" style="font-size:13px">Cantidad: <?php echo intval($it['bqty']); ?> &bull; Precio unitario: $<?php echo number_format($it['productPrice'],0,'.',','); ?></span>
-</div>
-<div style="text-align:right">
-<strong>$<?php echo number_format($it['productPrice'] * $it['bqty'],0,'.',','); ?></strong>
-</div>
-</div>
-<?php endforeach; ?>
+<div class="container">
+<div class="bundle-wrap">
 
-<div style="border-top:2px solid #eee;margin-top:16px;padding-top:16px">
-<div style="display:flex;justify-content:space-between;margin-bottom:6px">
-<span class="text-muted">Precio regular</span>
-<span style="text-decoration:line-through;color:#999">$<?php echo number_format($regular_total,0,'.',','); ?></span>
-</div>
-<?php if ($savings > 0): ?>
-<div style="display:flex;justify-content:space-between;margin-bottom:12px">
-<span>Ahorro del pack <span class="savings-badge">-<?php echo $pct; ?>%</span></span>
-<span style="color:#27ae60;font-weight:600">-$<?php echo number_format($savings,0,'.',','); ?></span>
-</div>
-<?php endif; ?>
-<div style="display:flex;justify-content:space-between;align-items:center">
-<span style="font-size:1.3em;font-weight:700">Total del pack</span>
-<span style="font-size:1.5em;font-weight:700;color:#e8233a">$<?php echo number_format($bundle['bundle_price'],0,'.',','); ?></span>
+    <!-- breadcrumb -->
+    <p style="font-size:12px;color:#aaa;margin-bottom:14px">
+        <a href="index2.php" style="color:#aaa">Inicio</a> &rsaquo;
+        <a href="bundles-list.php" style="color:#aaa">Packs Oferta</a> &rsaquo;
+        <?php echo htmlspecialchars($bundle['name']); ?>
+    </p>
+
+    <div class="bundle-hero">
+        <h1><i class="fa fa-gift"></i> <?php echo htmlspecialchars($bundle['name']); ?></h1>
+        <?php if ($bundle['description']): ?>
+        <p><?php echo htmlspecialchars($bundle['description']); ?></p>
+        <?php endif; ?>
+    </div>
+
+    <div class="bundle-body">
+        <h5 style="margin:0 0 16px;font-size:14px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.5px">
+            <i class="fa fa-cubes" style="color:#e8233a;margin-right:6px"></i> Productos incluidos
+        </h5>
+
+        <?php foreach ($items as $it): ?>
+        <div class="b-item">
+            <img src="admin/productimages/<?php echo intval($it['id']); ?>/<?php echo htmlspecialchars($it['productImage1']); ?>"
+                 onerror="this.style.display='none'" alt="">
+            <div class="b-item-info">
+                <strong><?php echo htmlspecialchars($it['productName']); ?></strong><br>
+                <small>Cant: <?php echo intval($it['bqty']); ?> &bull; Precio unitario: $<?php echo number_format($it['productPrice'],0,'.',','); ?></small>
+            </div>
+            <div class="b-item-subtotal">$<?php echo number_format($it['productPrice']*$it['bqty'],0,'.',','); ?></div>
+        </div>
+        <?php endforeach; ?>
+
+        <div class="b-totals">
+            <div class="b-row">
+                <span style="color:#999">Precio regular</span>
+                <span style="text-decoration:line-through;color:#bbb">$<?php echo number_format($regular_total,0,'.',','); ?></span>
+            </div>
+            <?php if ($savings > 0): ?>
+            <div class="b-row">
+                <span>Ahorro del pack <span class="badge-saving">-<?php echo $pct; ?>%</span></span>
+                <span style="color:#27ae60;font-weight:700">-$<?php echo number_format($savings,0,'.',','); ?></span>
+            </div>
+            <?php endif; ?>
+            <div class="b-row" style="font-size:1.2em;font-weight:800;margin-top:8px">
+                <span>Total del pack</span>
+                <span style="color:#e8233a">$<?php echo number_format($bundle['bundle_price'],0,'.',','); ?></span>
+            </div>
+        </div>
+
+        <form method="post">
+            <button type="submit" name="add_bundle" class="btn-add-bundle">
+                <i class="fa fa-shopping-cart"></i> Agregar pack al carrito
+            </button>
+        </form>
+
+        <div style="text-align:center;margin-top:14px">
+            <a href="bundles-list.php" style="color:#aaa;font-size:12px"><i class="fa fa-arrow-left"></i> Ver todos los packs</a>
+        </div>
+    </div>
+
 </div>
 </div>
 
-<form method="post" style="text-align:center;margin-top:20px">
-<button type="submit" name="add_bundle" class="btn btn-danger btn-lg">
-<i class="fa fa-shopping-cart"></i> Agregar pack al carrito
-</button>
-</form>
-
-<div style="text-align:center;margin-top:12px">
-<a href="index2.php" style="color:#888;font-size:13px">Seguir comprando</a>
-</div>
-</div>
-</div>
-
-<script src="assets/js/jquery-1.11.1.min.js"></script>
-<script src="assets/js/bootstrap.min.js"></script>
+<?php include('includes/footer.php'); ?>
 </body>
 </html>
