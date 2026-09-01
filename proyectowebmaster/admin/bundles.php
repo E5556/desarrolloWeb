@@ -176,12 +176,13 @@ $bundles_q = mysqli_query($con,
 .ps-item-qty { width:72px !important; text-align:center; }
 .ps-item-label { font-size:11px; color:#888; white-space:nowrap; }
 .ps-btn-remove {
-    background:none; border:1px solid #e74c3c; color:#e74c3c;
-    border-radius:6px; width:30px; height:30px;
+    background:#e74c3c; border:none; color:#fff;
+    border-radius:6px; width:32px; height:32px;
     display:flex; align-items:center; justify-content:center;
     cursor:pointer; flex-shrink:0; transition:.2s;
+    font-size:18px; line-height:1; font-weight:700;
 }
-.ps-btn-remove:hover { background:#e74c3c; color:#fff; }
+.ps-btn-remove:hover { background:#c0392b; }
 .btn-add-item {
     background:#f0eeff; border:1px dashed #6c5ce7; color:#6c5ce7;
     border-radius:7px; padding:8px 16px; font-size:12px; font-weight:600;
@@ -288,8 +289,8 @@ $bundles_q = mysqli_query($con,
         <div class="ps-field" style="max-width:130px">
             <label><i class="fa fa-toggle-on" style="color:#f39c12;margin-right:4px"></i> Estado</label>
             <select name="is_active">
-                <option value="1" <?php echo (!$edit_bundle || $edit_bundle['is_active']) ? 'selected' : ''; ?>>✅ Activo</option>
-                <option value="0" <?php echo ($edit_bundle && !$edit_bundle['is_active']) ? 'selected' : ''; ?>>⏸ Inactivo</option>
+                <option value="1" <?php echo (!$edit_bundle || $edit_bundle['is_active']) ? 'selected' : ''; ?>>Activo</option>
+                <option value="0" <?php echo ($edit_bundle && !$edit_bundle['is_active']) ? 'selected' : ''; ?>>Inactivo</option>
             </select>
         </div>
     </div>
@@ -325,7 +326,7 @@ $bundles_q = mysqli_query($con,
                        min="1" class="ps-item-qty">
                 <button type="button" class="ps-btn-remove" title="Quitar producto"
                         onclick="if(document.querySelectorAll('.ps-item-row').length>1) this.closest('.ps-item-row').remove(); else alert('El bundle debe tener al menos un producto.')">
-                    <i class="fa fa-times"></i>
+                    &times;
                 </button>
             </div>
             <?php endforeach; ?>
@@ -441,7 +442,7 @@ document.getElementById('add-item').addEventListener('click', function(){
         '<input type="number" name="quantities[]" value="1" min="1" class="ps-item-qty">'+
         '<button type="button" class="ps-btn-remove" title="Quitar" '+
         'onclick="if(document.querySelectorAll(\'.ps-item-row\').length>1) this.closest(\'.ps-item-row\').remove(); else alert(\'El bundle debe tener al menos un producto.\')">'+
-        '<i class=\"fa fa-times\"></i></button>';
+        '&times;</button>';
     document.getElementById('bundle-items').appendChild(div);
     div.querySelector('select').focus();
 });
