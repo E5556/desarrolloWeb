@@ -2,6 +2,7 @@
 ob_start();
 session_start();
 error_reporting(0);
+ini_set('log_errors', 1);
 include('include/config.php');
 if (!isset($_SESSION['alogin'])) { header('location:index.php'); exit(); }
 
@@ -58,16 +59,20 @@ if (isset($_POST['save_bundle'])) {
         $errmsg = 'Completa el nombre, precio y al menos un producto.';
     } else {
         if ($bid > 0) {
-            mysqli_query($con, "UPDATE bundles SET name='$name', description='$desc', bundle_price=$price, is_active=$active WHERE id=$bid");
+            $uq = mysqli_query($con, "UPDATE bundles SET name='$name', description='$desc', bundle_price=$price, is_active=$active WHERE id=$bid");
+            if (!$uq) { error_log('bundles UPDATE error: ' . mysqli_error($con)); }
             mysqli_query($con, "DELETE FROM bundle_items WHERE bundle_id=$bid");
         } else {
-            mysqli_query($con, "INSERT INTO bundles (name,description,bundle_price,is_active) VALUES('$name','$desc',$price,$active)");
+            $iq = mysqli_query($con, "INSERT INTO bundles (name,description,bundle_price,is_active) VALUES('$name','$desc',$price,$active)");
+            if (!$iq) { error_log('bundles INSERT error: ' . mysqli_error($con)); }
             $bid = mysqli_insert_id($con);
         }
         $stmt = mysqli_prepare($con, "INSERT INTO bundle_items (bundle_id,product_id,quantity) VALUES(?,?,?)");
+        if (!$stmt) { error_log('bundles prepare error: ' . mysqli_error($con)); }
         foreach ($items as $it) {
             mysqli_stmt_bind_param($stmt, 'iii', $bid, $it['pid'], $it['qty']);
-            mysqli_stmt_execute($stmt);
+            $ok = mysqli_stmt_execute($stmt);
+            if (!$ok) { error_log('bundles item insert error: ' . mysqli_stmt_error($stmt)); }
         }
         mysqli_stmt_close($stmt);
         header('location:bundles.php?saved=1'); exit();
